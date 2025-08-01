@@ -56,7 +56,7 @@ export default function LoginPage() {
       if (data.user) {
         setMessage('¡Inicio de sesión exitoso! Redirigiendo...')
         setTimeout(() => {
-          router.push('/dashboard')
+          router.push('/pages/dashboard-user')
         }, 1500)
       }
     } catch (error: any) {
