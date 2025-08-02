@@ -3,18 +3,84 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 
+interface UserAccount {
+  id: string
+  nombre: string
+  apellido: string
+  correo: string
+  rol: 'usuario' | 'admin'
+  creada_en: string
+}
+
+interface ExtendedUser extends User {
+  account?: UserAccount | null
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<ExtendedUser | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userAccount, setUserAccount] = useState<UserAccount | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  const fetchUserAccount = async (userId: string): Promise<UserAccount | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('cuentas')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching user account:', error)
+        setAuthError('Error al cargar la información del usuario')
+        return null
+      }
+
+      setAuthError(null)
+      return data as UserAccount
+    } catch (error) {
+      console.error('Error in fetchUserAccount:', error)
+      setAuthError('Error de conexión')
+      return null
+    }
+  }
+
+  const handleAuthStateChange = async (session: Session | null) => {
+    setSession(session)
+    
+    if (session?.user) {
+      const account = await fetchUserAccount(session.user.id)
+      setUserAccount(account)
+      setUser({ ...session.user, account })
+    } else {
+      setUser(null)
+      setUserAccount(null)
+      setAuthError(null)
+    }
+    
+    setLoading(false)
+  }
 
   useEffect(() => {
     // Obtener sesión inicial
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error getting session:', error)
+          setAuthError('Error de autenticación')
+          setLoading(false)
+          return
+        }
+
+        await handleAuthStateChange(session)
+      } catch (error) {
+        console.error('Error in getInitialSession:', error)
+        setAuthError('Error al inicializar la sesión')
+        setLoading(false)
+      }
     }
 
     getInitialSession()
@@ -22,9 +88,8 @@ export function useAuth() {
     // Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
+        console.log('Auth state changed:', event, session?.user?.email)
+        await handleAuthStateChange(session)
       }
     )
 
@@ -33,6 +98,8 @@ export function useAuth() {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    setUser(null)
+    setUserAccount(null)
   }
 
   const resetPassword = async (email: string) => {
@@ -41,11 +108,50 @@ export function useAuth() {
     })
   }
 
+  const updateUserRole = async (userId: string, newRole: 'usuario' | 'admin') => {
+    if (userAccount?.rol !== 'admin') {
+      throw new Error('No tienes permisos para cambiar roles')
+    }
+
+    const { error } = await supabase
+      .from('cuentas')
+      .update({ rol: newRole })
+      .eq('id', userId)
+
+    if (error) throw error
+
+    // Actualizar datos locales si es el usuario actual
+    if (userId === user?.id) {
+      const updatedAccount = { ...userAccount, rol: newRole }
+      setUserAccount(updatedAccount)
+      setUser({ ...user, account: updatedAccount })
+    }
+  }
+
+  const isAdmin = (): boolean => {
+    return userAccount?.rol === 'admin'
+  }
+
+  const isAuthenticated = (): boolean => {
+    return !!user && !!session
+  }
+
+  const hasRole = (role: 'usuario' | 'admin'): boolean => {
+    return userAccount?.rol === role
+  }
+
   return {
     user,
     session,
     loading,
+    userAccount,
+    authError,
     signOut,
-    resetPassword
+    resetPassword,
+    updateUserRole,
+    isAdmin,
+    isAuthenticated,
+    hasRole,
+    refreshUserAccount: () => user?.id ? fetchUserAccount(user.id) : Promise.resolve(null)
   }
 }

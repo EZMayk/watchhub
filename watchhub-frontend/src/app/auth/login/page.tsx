@@ -55,9 +55,38 @@ export default function LoginPage() {
       if (error) throw error
 
       if (data.user) {
+        // Obtener información del usuario para determinar redirección
+        const { data: userAccount } = await supabase
+          .from('cuentas')
+          .select('rol')
+          .eq('id', data.user.id)
+          .single()
+
         setMessage('¡Inicio de sesión exitoso! Redirigiendo...')
+        
         setTimeout(() => {
-          router.push('/pages/dashboard-user')
+          // Verificar si hay una URL de redirección
+          const searchParams = new URLSearchParams(window.location.search)
+          const redirectTo = searchParams.get('redirectTo')
+          
+          if (redirectTo) {
+            // Si hay una URL de redirección, verificar permisos
+            if (redirectTo.startsWith('/admin') && userAccount?.rol === 'admin') {
+              router.push(redirectTo)
+            } else if (redirectTo.startsWith('/admin') && userAccount?.rol !== 'admin') {
+              // Si intenta acceder a admin sin permisos, ir al dashboard de usuario
+              router.push('/pages/dashboard-user?error=access_denied')
+            } else {
+              router.push(redirectTo)
+            }
+          } else {
+            // Redirección por defecto basada en el rol
+            if (userAccount?.rol === 'admin') {
+              router.push('/admin')
+            } else {
+              router.push('/pages/dashboard-user')
+            }
+          }
         }, 1500)
       }
     } catch (error: any) {
