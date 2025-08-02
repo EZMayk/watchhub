@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, AlertCircle, CheckCircle, Crown } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Film, Crown, AlertCircle, CheckCircle } from 'lucide-react'
+import { Button, Input, Card, CardHeader, CardTitle, CardContent, Alert } from '@/components/ui'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -123,7 +124,7 @@ export default function RegisterPage() {
           </div>
           
           <h1 className="text-3xl font-bold text-white mb-2">
-            Crear Cuenta
+            Únete a WatchHub
           </h1>
           <p className="text-gray-400">
             Únete a la mejor plataforma de streaming

@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LogOut, Plus, Settings, User, Film, Crown, Shield } from 'lucide-react'
+import { Button, Card, CardContent, Avatar, Badge, Modal, Input, Alert } from '@/components/ui'
+import Navbar from '../../../components/Navbar'
 
 interface Profile {
   id: string

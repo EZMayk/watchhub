@@ -1,7 +1,10 @@
 'use client'
 import React from 'react'
 import { Edit3, UserPlus, Settings } from 'lucide-react'
-import { Card, CardContent, Avatar, Button, Badge } from './ui'
+import { Card, CardContent } from './Card'
+import { Avatar } from './Avatar'
+import { Button } from './Button'
+import { Badge } from './Badge'
 
 interface Profile {
   id: string
