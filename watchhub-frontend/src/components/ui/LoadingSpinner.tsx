@@ -66,6 +66,7 @@ const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
       <div
         ref={ref}
         className={cn('flex flex-col items-center justify-center', className)}
+        data-testid="loading-spinner"
         {...props}
       >
         {renderSpinner()}

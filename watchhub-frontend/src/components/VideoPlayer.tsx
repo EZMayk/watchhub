@@ -197,6 +197,7 @@ export default function VideoPlayer({
   return (
     <div
       ref={containerRef}
+      data-testid="video-player"
       className={cn('relative bg-black rounded-lg overflow-hidden group', className)}
       onMouseEnter={() => setShowControls(true)}
       onMouseMove={() => setShowControls(true)}
@@ -205,6 +206,7 @@ export default function VideoPlayer({
       {/* Video Element */}
       <video
         ref={videoRef}
+        data-testid="video-element"
         className="w-full h-full object-contain"
         poster={poster}
         onPlay={handlePlay}
@@ -219,7 +221,7 @@ export default function VideoPlayer({
       {isLoading && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <div className="text-center text-white">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+            <div data-testid="loading-spinner" className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
             <p>Cargando video...</p>
           </div>
         </div>
