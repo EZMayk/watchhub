@@ -1,0 +1,47 @@
+# .github/workflows/ci.yml
+
+# Nombre del workflow, se mostrará en la pestaña "Actions" de GitHub
+name: CI Pipeline
+
+# Eventos que disparan el workflow
+on:
+  # Se dispara cada vez que se hace un push a las ramas 'main' o 'desarrolo'
+  push:
+    branches:
+      - main
+      - desarrolo
+
+  # Se dispara cada vez que se abre un Pull Request contra 'main' o 'desarrolo'
+  pull_request:
+    branches:
+      - main
+      - desarrolo
+
+# Define los trabajos (jobs) que se ejecutarán
+jobs:
+  build-and-test:
+    # Nombre del trabajo
+    name: Build and Test
+
+    # Entorno en el que se ejecutará el trabajo (servidor virtual de GitHub)
+    runs-on: ubuntu-latest
+
+    # Pasos del trabajo
+    steps:
+      # Paso 1: Clona el código del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configura el entorno de Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Asegúrate de que esta versión coincida con la de tu proyecto
+
+      # Paso 3: Instala las dependencias del proyecto
+      - name: Install dependencies
+        run: npm install
+
+      # Paso 4: Ejecuta las pruebas unitarias y genera el reporte de cobertura
+      - name: Run tests and generate coverage
+        run: npm run test:coverage
