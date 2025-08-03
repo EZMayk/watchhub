@@ -11,7 +11,6 @@ jest.mock('hls.js', () => {
     on: jest.fn(),
     off: jest.fn(),
     destroy: jest.fn(),
-    destroy: jest.fn(),
   }))
 })
 
