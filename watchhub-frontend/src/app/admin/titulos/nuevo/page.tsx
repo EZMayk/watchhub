@@ -42,7 +42,7 @@ export default function NuevoTitulo() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const handleInputChange = (field: keyof TituloForm, value: any) => {
+  const handleInputChange = (field: keyof TituloForm, value: string | number | boolean) => {
     setForm(prev => ({
       ...prev,
       [field]: value

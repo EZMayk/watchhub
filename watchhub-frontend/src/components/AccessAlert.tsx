@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
-export default function AccessAlert() {
+function AccessAlertContent() {
   const searchParams = useSearchParams();
   const [show, setShow] = useState(false);
   const [message, setMessage] = useState('');
@@ -44,5 +45,13 @@ export default function AccessAlert() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AccessAlert() {
+  return (
+    <Suspense fallback={null}>
+      <AccessAlertContent />
+    </Suspense>
   );
 }

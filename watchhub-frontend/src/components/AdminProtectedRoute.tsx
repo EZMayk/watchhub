@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
@@ -11,7 +11,7 @@ interface AdminProtectedRouteProps {
   fallback?: React.ReactNode;
 }
 
-export default function AdminProtectedRoute({ 
+function AdminProtectedContent({ 
   children, 
   fallback 
 }: AdminProtectedRouteProps) {
@@ -156,4 +156,17 @@ export default function AdminProtectedRoute({
 
   // Si todo está bien, mostrar el contenido
   return <>{children}</>;
+}
+
+export default function AdminProtectedRoute({ 
+  children, 
+  fallback 
+}: AdminProtectedRouteProps) {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <AdminProtectedContent fallback={fallback}>
+        {children}
+      </AdminProtectedContent>
+    </Suspense>
+  );
 }

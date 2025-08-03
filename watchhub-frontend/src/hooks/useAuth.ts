@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 
@@ -46,7 +46,7 @@ export function useAuth() {
     }
   }
 
-  const handleAuthStateChange = async (session: Session | null) => {
+  const handleAuthStateChange = useCallback(async (session: Session | null) => {
     setSession(session)
     
     if (session?.user) {
@@ -60,7 +60,7 @@ export function useAuth() {
     }
     
     setLoading(false)
-  }
+  }, []) // fetchUserAccount es estable, no necesita dependencias
 
   useEffect(() => {
     // Obtener sesión inicial
@@ -94,7 +94,7 @@ export function useAuth() {
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [handleAuthStateChange])
 
   const signOut = async () => {
     await supabase.auth.signOut()

@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, Film, AlertCircle, CheckCircle } from 'lucide-react'
-import { Button, Input, Card, CardHeader, CardTitle, CardContent, Alert } from '@/components/ui'
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, Film } from 'lucide-react'
+import { Button, Input, Card, CardContent, Alert } from '@/components/ui'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -89,15 +89,17 @@ export default function LoginPage() {
           }
         }, 1500)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error)
       
-      if (error.message.includes('Invalid login credentials')) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      
+      if (errorMessage.includes('Invalid login credentials')) {
         setError('Credenciales incorrectas. Verifica tu email y contraseña.')
-      } else if (error.message.includes('Email not confirmed')) {
+      } else if (errorMessage.includes('Email not confirmed')) {
         setError('Debes confirmar tu correo electrónico antes de iniciar sesión.')
       } else {
-        setError(error.message || 'Ocurrió un error inesperado')
+        setError(errorMessage || 'Ocurrió un error inesperado')
       }
     } finally {
       setLoading(false)
@@ -118,8 +120,9 @@ export default function LoginPage() {
       if (error) throw error
 
       setMessage('Se ha enviado un correo para restablecer tu contraseña. Revisa tu bandeja de entrada.')
-    } catch (error: any) {
-      setError(`Error al enviar correo: ${error.message}`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      setError(`Error al enviar correo: ${errorMessage}`)
     }
   }
 

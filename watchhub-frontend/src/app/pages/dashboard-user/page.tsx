@@ -1,4 +1,5 @@
 'use client'
+import { Suspense } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -15,7 +16,7 @@ interface Profile {
   color: string
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { user, loading, signOut } = useAuth()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [showCreateProfile, setShowCreateProfile] = useState(false)
@@ -401,5 +402,13 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div>Cargando...</div>}>
+      <DashboardContent />
+    </Suspense>
   )
 }
