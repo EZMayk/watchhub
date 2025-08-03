@@ -1,13 +1,13 @@
 'use client'
 import React, { useRef, useEffect, useState } from 'react'
 import Hls from 'hls.js'
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
-  Minimize, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
   Settings,
   SkipBack,
   SkipForward,
@@ -37,7 +37,7 @@ export default function VideoPlayer({
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  
+
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -51,7 +51,7 @@ export default function VideoPlayer({
   // Auto-hide controls
   useEffect(() => {
     let timeout: NodeJS.Timeout
-    
+
     if (isPlaying && showControls) {
       timeout = setTimeout(() => {
         setShowControls(false)
@@ -69,7 +69,7 @@ export default function VideoPlayer({
 
       if (Hls.isSupported()) {
         const hls = new Hls()
-        
+
         hls.on(Hls.Events.ERROR, (event, data) => {
           console.error('HLS Error:', data)
           setError('Error al cargar el video')
