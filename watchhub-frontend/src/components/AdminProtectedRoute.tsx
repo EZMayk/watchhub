@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui';
@@ -14,9 +14,8 @@ interface AdminProtectedRouteProps {
 function AdminProtectedContent({ 
   children, 
   fallback 
-}: AdminProtectedRouteProps) {
+}: Readonly<AdminProtectedRouteProps>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, userAccount, loading, isAdmin, isAuthenticated, authError } = useAuth();
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
@@ -154,14 +153,14 @@ function AdminProtectedContent({
     );
   }
 
-  // Si todo está bien, mostrar el contenido
+  // Usuario autenticado y con permisos de administrador - renderizar contenido protegido
   return <>{children}</>;
 }
 
 export default function AdminProtectedRoute({ 
   children, 
   fallback 
-}: AdminProtectedRouteProps) {
+}: Readonly<AdminProtectedRouteProps>) {
   return (
     <Suspense fallback={<div>Cargando...</div>}>
       <AdminProtectedContent fallback={fallback}>

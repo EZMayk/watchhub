@@ -62,26 +62,32 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Overlay */}
-      <div
-        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
-        onClick={closeOnOverlayClick ? onClose : undefined}
-      />
+      {closeOnOverlayClick ? (
+        <button
+          className="absolute inset-0 bg-black/75 backdrop-blur-sm border-none cursor-default"
+          onClick={onClose}
+          aria-label="Cerrar modal"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      )}
       
       {/* Modal Content */}
-      <div
+      <dialog
         className={cn(
           'relative bg-gray-900 rounded-lg shadow-xl border border-gray-700 w-full overflow-hidden',
           getSizeClasses(),
           size === 'full' ? 'h-full' : 'max-h-[90vh]',
           className
         )}
-        onClick={(e) => e.stopPropagation()}
+        aria-labelledby={title ? "modal-title" : undefined}
+        open={isOpen}
       >
         {/* Header */}
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
             {title && (
-              <h2 className="text-xl font-semibold text-white">{title}</h2>
+              <h2 id="modal-title" className="text-xl font-semibold text-white">{title}</h2>
             )}
             {showCloseButton && (
               <button
@@ -99,7 +105,7 @@ const Modal: React.FC<ModalProps> = ({
         <div className="overflow-y-auto max-h-full">
           {children}
         </div>
-      </div>
+      </dialog>
     </div>
   )
 }

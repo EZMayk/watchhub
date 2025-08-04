@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -69,7 +68,7 @@ const menuItems = [
   }
 ];
 
-export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: AdminSidebarProps) {
+export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: Readonly<AdminSidebarProps>) {
   const router = useRouter();
   const pathname = usePathname();
   const { signOut } = useAuth();
@@ -87,9 +86,10 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
     <>
       {/* Overlay para móvil */}
       {!isCollapsed && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+        <button 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden border-none cursor-default"
           onClick={() => setIsCollapsed(true)}
+          aria-label="Cerrar menú lateral"
         />
       )}
 
@@ -97,7 +97,6 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
       <div className={`
         fixed top-0 left-0 z-50 h-full bg-gray-900 text-white transition-all duration-300
         ${isCollapsed ? 'w-16' : 'w-64'}
-        ${isCollapsed ? 'translate-x-0' : 'translate-x-0'}
         md:translate-x-0
       `}>
         {/* Header del sidebar */}

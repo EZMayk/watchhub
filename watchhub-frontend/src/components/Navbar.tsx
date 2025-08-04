@@ -1,7 +1,6 @@
 'use client'
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Film, Menu, X, Search, User, LogOut, Settings, Bell } from 'lucide-react'
 import { Button, Avatar, Badge } from './ui'
 
@@ -14,10 +13,9 @@ interface NavbarProps {
   onLogout?: () => void
 }
 
-export default function Navbar({ user, onLogout }: NavbarProps) {
+export default function Navbar({ user, onLogout }: Readonly<NavbarProps>) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const router = useRouter()
 
   const navigation = [
     { name: 'Inicio', href: '/' },
