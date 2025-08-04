@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Play, ArrowRight, Film, Users, Crown, AlertCircle } from 'lucide-react'
 import { Button, Card, CardContent, LoadingSpinner, Alert } from '@/components/ui'
 import TrailerCard from '@/components/TrailerCard'
-import Navbar from '@/components/Navbar'
+import LandingNavbar from '@/components/LandingNavbar'
 
 // Definir el tipo para los trailers basado en la estructura de la base de datos
 interface Trailer {
@@ -80,7 +80,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
-      <Navbar />
+      <LandingNavbar />
       
       {/* Hero Section Mejorado */}
       <header className="hero-section relative overflow-hidden" aria-labelledby="main-heading">

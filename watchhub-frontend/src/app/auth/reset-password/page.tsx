@@ -1,51 +1,109 @@
 'use client'
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import { Button, Input, Card, CardContent, Alert, LoadingSpinner } from '@/components/ui'
 
 function ResetPasswordContent() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [validToken, setValidToken] = useState<boolean | null>(null)
   
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Verificar si hay un token de reset en la URL
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
-    const type = hashParams.get('type')
+    const validateToken = () => {
+      // Dar tiempo para que el hash se cargue completamente
+      setTimeout(() => {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const type = hashParams.get('type')
+        const refreshToken = hashParams.get('refresh_token')
 
-    if (type !== 'recovery' || !accessToken) {
-      setError('Enlace de recuperación inválido o expirado')
+        console.log('Hash params:', { accessToken, type, refreshToken }) // Debug
+
+        // Si hay un access_token y es de tipo recovery, es válido
+        if (accessToken && type === 'recovery') {
+          setValidToken(true)
+          // Establecer la sesión con los tokens si están disponibles
+          if (refreshToken) {
+            supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            })
+          }
+        } else if (window.location.hash) {
+          // Si hay hash pero no es válido
+          setValidToken(false)
+          setError('Enlace de recuperación inválido o expirado. Solicita un nuevo enlace de recuperación.')
+        } else {
+          // Si no hay hash, asumir que es una página directa (para testing)
+          console.log('No hash found, assuming direct access for testing')
+          setValidToken(true) // Temporal para testing
+        }
+      }, 200) // Aumentamos el timeout
     }
+
+    validateToken()
   }, [])
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const validateForm = useCallback((): boolean => {
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      return false
+    }
+
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden')
+      return false
+    }
+
+    if (password.length > 72) {
+      setError('La contraseña no puede tener más de 72 caracteres')
+      return false
+    }
+
+    return true
+  }, [password, confirmPassword])
+
+  const handleResetPassword = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     setMessage('')
 
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres')
-      setLoading(false)
-      return
-    }
-
-    if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden')
+    if (!validateForm()) {
       setLoading(false)
       return
     }
 
     try {
+      // Verificar si hay una sesión activa
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        // Si no hay sesión, intentar establecerla desde el hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          })
+        } else {
+          throw new Error('No se pudo establecer la sesión para actualizar la contraseña')
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: password
       })
@@ -55,109 +113,233 @@ function ResetPasswordContent() {
       setMessage('¡Contraseña actualizada exitosamente! Redirigiendo al login...')
       
       setTimeout(() => {
-        router.push('/auth')
+        router.push('/auth/login')
       }, 2000)
 
-    } catch (error: any) {
-      setError(error.message || 'Error al actualizar la contraseña')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      console.error('Reset password error:', errorMessage) // Debug
+      
+      if (errorMessage.includes('session')) {
+        setError('Sesión expirada. Solicita un nuevo enlace de recuperación.')
+      } else {
+        setError(errorMessage || 'Error al actualizar la contraseña')
+      }
     } finally {
       setLoading(false)
     }
+  }, [password, router, validateForm])
+
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword(!showPassword)
+  }, [showPassword])
+
+  const toggleConfirmPasswordVisibility = useCallback(() => {
+    setShowConfirmPassword(!showConfirmPassword)
+  }, [showConfirmPassword])
+
+  // Mostrar loading mientras se valida el token
+  if (validToken === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <LoadingSpinner size="lg" text="Validando enlace de recuperación..." />
+        </div>
+      </div>
+    )
+  }
+
+  // Si el token no es válido, mostrar error
+  if (validToken === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-6">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-red-600/20 rounded-full backdrop-blur-sm">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+              </div>
+            </div>
+            
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-1 text-gradient">
+              Enlace Inválido
+            </h1>
+            <p className="text-gray-400 text-sm">
+              El enlace de recuperación ha expirado
+            </p>
+          </div>
+
+          <Card variant="glass" className="card-glass">
+            <CardContent className="p-6 text-center">
+              <Alert
+                variant="error"
+                description="Este enlace ha expirado. Solicita un nuevo enlace desde la página de login."
+                className="mb-4 text-sm"
+              />
+              
+              <div className="flex flex-col gap-3">
+                <Link href="/auth/login">
+                  <Button
+                    variant="gradient"
+                    size="lg"
+                    className="w-full hover-lift"
+                  >
+                    Ir al Login
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full hover-lift"
+                  >
+                    Inicio
+                  </Button>
+                </Link>
+              </div>
+              
+              {/* Botón temporal para testing */}
+              <div className="mt-3 pt-3 border-t border-gray-700">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setValidToken(true)}
+                  className="text-gray-400 hover:text-white text-xs"
+                >
+                  [DEBUG] Mostrar formulario
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link href="/auth" className="inline-flex items-center text-gray-400 hover:text-white mb-6 transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver al login
+      <div className="w-full max-w-md">
+        {/* Header compacto */}
+        <div className="text-center mb-6">
+          <Link 
+            href="/auth/login" 
+            className="inline-flex items-center space-x-2 text-red-500 hover:text-red-400 transition-colors mb-4 hover-lift text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Volver al login</span>
           </Link>
           
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <div className="flex justify-center mb-3">
+            <div className="p-3 bg-red-600/20 rounded-full backdrop-blur-sm animate-float">
+              <Lock className="h-8 w-8 text-red-500" />
+            </div>
+          </div>
+          
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1 text-gradient">
             Nueva Contraseña
           </h1>
-          <p className="text-gray-400">
-            Ingresa tu nueva contraseña para tu cuenta de WatchHub
+          <p className="text-gray-400 text-sm">
+            Ingresa tu nueva contraseña para WatchHub
           </p>
         </div>
 
-        {/* Form */}
-        <div className="bg-gray-800 rounded-lg p-6 shadow-xl">
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            {/* New Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Nueva Contraseña *
-              </label>
-              <div className="relative">
-                <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
-                <input
+        <Card variant="glass" className="card-glass hover-lift border-gray-700/50">
+          <CardContent className="p-6">
+            {/* Alerts compactos */}
+            {error && (
+              <Alert
+                variant="error"
+                description={error}
+                dismissible
+                onDismiss={() => setError('')}
+                className="mb-4 animate-slideDown text-sm"
+                icon={<AlertCircle className="h-4 w-4" />}
+              />
+            )}
+
+            {message && (
+              <Alert
+                variant="success"
+                description={message}
+                className="mb-4 animate-slideDown text-sm"
+                icon={<CheckCircle className="h-4 w-4" />}
+              />
+            )}
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              {/* Contraseñas en grid compacto */}
+              <div className="space-y-3">
+                <Input
                   type={showPassword ? 'text' : 'password'}
+                  label="Nueva Contraseña"
+                  placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="••••••••"
+                  leftIcon={<Lock className="h-4 w-4" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      className="text-gray-400 hover:text-white transition-colors p-1 hover-lift"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    >
+                      {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </button>
+                  }
+                  className="input-glass text-sm"
+                  helperText="6-72 caracteres"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Mínimo 6 caracteres
-              </p>
-            </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Confirmar Nueva Contraseña *
-              </label>
-              <div className="relative">
-                <Lock className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
+                <Input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  label="Confirmar Contraseña"
+                  placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="••••••••"
+                  leftIcon={<Lock className="h-4 w-4" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      onClick={toggleConfirmPasswordVisibility}
+                      className="text-gray-400 hover:text-white transition-colors p-1 hover-lift"
+                      aria-label={showConfirmPassword ? 'Ocultar confirmación' : 'Mostrar confirmación'}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </button>
+                  }
+                  className="input-glass text-sm"
+                  helperText="Debe coincidir"
                   required
                 />
               </div>
+
+              <Button
+                type="submit"
+                variant="gradient"
+                size="lg"
+                loading={loading}
+                className="w-full hover-lift btn-gradient"
+                disabled={loading || !password || !confirmPassword}
+              >
+                {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
+              </Button>
+            </form>
+
+            {/* Link compacto */}
+            <div className="mt-4 text-center">
+              <p className="text-gray-400 text-sm">
+                ¿Recordaste tu contraseña?{' '}
+                <Link 
+                  href="/auth/login" 
+                  className="text-red-500 hover:text-red-400 font-medium transition-colors hover-lift"
+                >
+                  Iniciar sesión
+                </Link>
+              </p>
             </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            {/* Success Message */}
-            {message && (
-              <div className="bg-green-900/50 border border-green-500 text-green-200 px-4 py-3 rounded-lg flex items-start space-x-2">
-                <CheckCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <span className="text-sm">{message}</span>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-3 rounded-lg font-semibold transition-colors"
-            >
-              {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
-            </button>
-          </form>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
