@@ -28,8 +28,8 @@ const LoadingSpinner = React.forwardRef<HTMLDivElement, LoadingSpinnerProps>(
           return (
             <div className="flex space-x-1">
               <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
-              <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-              <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+              <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse [animation-delay:0.1s]"></div>
+              <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
             </div>
           )
         case 'pulse':

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { supabase } from '@/lib/supabase';
@@ -49,35 +49,65 @@ export default function NuevoTitulo() {
     }));
   };
 
+  // Constantes para validación de archivos
+  const FILE_VALIDATION = {
+    MAX_VIDEO_SIZE: 500 * 1024 * 1024, // 500MB
+    MAX_IMAGE_SIZE: 10 * 1024 * 1024,  // 10MB
+    LARGE_FILE_WARNING_SIZE: 5 * 1024 * 1024, // 5MB
+    DUPLEX_THRESHOLD_SIZE: 2 * 1024 * 1024, // 2MB
+    ALLOWED_VIDEO_TYPES: ['video/mp4', 'video/webm', 'video/quicktime'],
+    ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  } as const;
+
+  const validateFileSize = (file: File, type: 'video' | 'image') => {
+    const maxSize = type === 'video' ? FILE_VALIDATION.MAX_VIDEO_SIZE : FILE_VALIDATION.MAX_IMAGE_SIZE;
+    if (file.size > maxSize) {
+      throw new Error(`El archivo es demasiado grande. Máximo ${type === 'video' ? '500MB' : '10MB'}`);
+    }
+  };
+
+  const validateFileType = (file: File, type: 'video' | 'image') => {
+    const allowedTypes = type === 'video' ? FILE_VALIDATION.ALLOWED_VIDEO_TYPES : FILE_VALIDATION.ALLOWED_IMAGE_TYPES;
+    if (!(allowedTypes as readonly string[]).includes(file.type)) {
+      throw new Error(`Tipo de archivo no permitido. Usa: ${allowedTypes.join(', ')}`);
+    }
+  };
+
+  const warnLargeFile = (file: File, type: 'video' | 'image') => {
+    if (type === 'image' && file.size > FILE_VALIDATION.LARGE_FILE_WARNING_SIZE) {
+      console.warn('⚠️ Archivo grande detectado:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
+    }
+  };
+
+  const generateUniqueFileName = (originalName: string, type: 'video' | 'image') => {
+    const fileExt = originalName.split('.').pop()?.toLowerCase();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    return `${type}s/${fileName}`;
+  };
+
+  const getUploadOptions = (fileSize: number) => ({
+    cacheControl: '3600',
+    upsert: false,
+    ...(fileSize > FILE_VALIDATION.DUPLEX_THRESHOLD_SIZE && { duplex: 'half' })
+  });
+
+  const getErrorMessage = (error: unknown, type: 'video' | 'image') => {
+    const fallbackMessage = `Error al subir ${type === 'video' ? 'video' : 'imagen'}`;
+    return error instanceof Error ? error.message : fallbackMessage;
+  };
+
   const handleFileUpload = async (file: File, type: 'video' | 'image') => {
     try {
       setUploading(true);
       setError('');
 
-      // Validar tamaño del archivo
-      const maxSize = type === 'video' ? 500 * 1024 * 1024 : 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        throw new Error(`El archivo es demasiado grande. Máximo ${type === 'video' ? '500MB' : '10MB'}`);
-      }
-
-      // Validar tipo de archivo
-      const allowedTypes = type === 'video' 
-        ? ['video/mp4', 'video/webm', 'video/quicktime']
-        : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error(`Tipo de archivo no permitido. Usa: ${allowedTypes.join(', ')}`);
-      }
-
-      // Mostrar advertencia para archivos grandes
-      if (type === 'image' && file.size > 5 * 1024 * 1024) {
-        console.warn('⚠️ Archivo grande detectado:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
-      }
+      // Validaciones
+      validateFileSize(file, type);
+      validateFileType(file, type);
+      warnLargeFile(file, type);
 
       // Generar nombre único
-      const fileExt = file.name.split('.').pop()?.toLowerCase();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${type}s/${fileName}`;
+      const filePath = generateUniqueFileName(file.name, type);
 
       // Verificar autenticación
       const { data: { user } } = await supabase.auth.getUser();
@@ -86,13 +116,9 @@ export default function NuevoTitulo() {
       }
 
       // Upload optimizado según tamaño
-      const uploadOptions = {
-        cacheControl: '3600',
-        upsert: false,
-        ...(file.size > 2 * 1024 * 1024 && { duplex: 'half' })
-      };
+      const uploadOptions = getUploadOptions(file.size);
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('content')
         .upload(filePath, file, uploadOptions);
 
@@ -112,9 +138,9 @@ export default function NuevoTitulo() {
         handleInputChange('imagen_portada', publicUrl);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Error uploading ${type}:`, error);
-      setError(error.message || `Error al subir ${type === 'video' ? 'video' : 'imagen'}`);
+      setError(getErrorMessage(error, type));
     } finally {
       setUploading(false);
     }
@@ -152,109 +178,25 @@ export default function NuevoTitulo() {
       if (error) throw error;
 
       router.push('/admin/titulos');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error creating title:', error);
-      setError('Error al crear el título');
+      const errorMessage = error instanceof Error ? error.message : 'Error al crear el título';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const testSupabaseConnection = async () => {
-    try {
-      console.log('🔍 === DIAGNÓSTICO COMPLETO DE SUPABASE STORAGE ===');
-      
-      // 1. Verificar autenticación
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('👤 Usuario:', user?.email || 'No autenticado', authError);
-      
-      // 2. Verificar configuración del cliente
-      console.log('🔧 Configuración del cliente:');
-      console.log('- URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-      console.log('- Key length:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length || 0);
-      
-      // 3. Test de conectividad básica
-      console.log('🌐 Test de conectividad:');
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
-          headers: {
-            'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`
-          }
-        });
-        console.log('- API REST status:', response.status, response.statusText);
-      } catch (e) {
-        console.error('- API REST error:', e);
-      }
-      
-      // 4. Verificar buckets
-      console.log('📦 Test de buckets:');
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-      console.log('- Buckets result:', buckets, bucketsError);
-      
-      // 5. Test directo al bucket content
-      console.log('🎬 Test bucket content:');
-      const { data: files, error: filesError } = await supabase.storage
-        .from('content')
-        .list('', { limit: 1 });
-      console.log('- Files result:', files, filesError);
-      
-      // 6. Test de URLs públicas
-      console.log('🔗 Test URL pública:');
-      const { data: { publicUrl } } = supabase.storage
-        .from('content')
-        .getPublicUrl('test.txt');
-      console.log('- Public URL:', publicUrl);
-      
-      // 7. Test de upload pequeño
-      console.log('� Test upload pequeño:');
-      try {
-        const testFile = new File(['test content'], 'test.txt', { type: 'text/plain' });
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('content')
-          .upload(`test/test-${Date.now()}.txt`, testFile, {
-            cacheControl: '3600',
-            upsert: true
-          });
-        console.log('- Upload result:', uploadData, uploadError);
-        
-        // Si el upload funcionó, eliminar el archivo de prueba
-        if (uploadData && !uploadError) {
-          await supabase.storage.from('content').remove([uploadData.path]);
-          console.log('- Test file cleaned up');
-        }
-      } catch (e) {
-        console.error('- Upload test error:', e);
-      }
-      
-      // 8. Verificar políticas RLS
-      console.log('� Test políticas:');
-      try {
-        const { data: policies } = await supabase
-          .from('pg_policies')
-          .select('*')
-          .eq('tablename', 'objects');
-        console.log('- Storage policies:', policies);
-      } catch (e) {
-        console.log('- No se pueden leer políticas (normal)');
-      }
-      
-      console.log('🏁 === FIN DEL DIAGNÓSTICO ===');
-      
-    } catch (error) {
-      console.error('❌ Error general en diagnóstico:', error);
-    }
-  };
-
-  // Diagnóstico manual disponible si se necesita
-  // useEffect(() => {
-  //   testSupabaseConnection();
-  // }, []);
-
-  const categorias = [
+  const categorias = useMemo(() => [
     'Acción', 'Aventura', 'Comedia', 'Drama', 'Terror', 'Ciencia Ficción',
     'Fantasy', 'Romance', 'Thriller', 'Documentales', 'Animación', 'Musical'
-  ];
+  ], []);
+
+  const getButtonText = () => {
+    if (loading) return 'Guardando...';
+    if (uploading) return 'Subiendo archivos...';
+    return 'Guardar Título';
+  };
 
   return (
     <AdminLayout 
@@ -301,10 +243,11 @@ export default function NuevoTitulo() {
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="lg:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label htmlFor="titulo-nombre" className="block text-sm font-semibold text-gray-700 mb-3">
                     Nombre del título *
                   </label>
                   <Input
+                    id="titulo-nombre"
                     type="text"
                     value={form.nombre}
                     onChange={(e) => handleInputChange('nombre', e.target.value)}
@@ -315,10 +258,11 @@ export default function NuevoTitulo() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label htmlFor="titulo-tipo" className="block text-sm font-semibold text-gray-700 mb-3">
                     Tipo de contenido
                   </label>
                   <select
+                    id="titulo-tipo"
                     value={form.tipo}
                     onChange={(e) => handleInputChange('tipo', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium"
@@ -330,10 +274,11 @@ export default function NuevoTitulo() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label htmlFor="titulo-categoria" className="block text-sm font-semibold text-gray-700 mb-3">
                     Categoría *
                   </label>
                   <select
+                    id="titulo-categoria"
                     value={form.categoria}
                     onChange={(e) => handleInputChange('categoria', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 font-medium"
@@ -346,10 +291,11 @@ export default function NuevoTitulo() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label htmlFor="titulo-edad" className="block text-sm font-semibold text-gray-700 mb-3">
                     Edad mínima
                   </label>
                   <Input
+                    id="titulo-edad"
                     type="number"
                     value={form.edad_minima}
                     onChange={(e) => handleInputChange('edad_minima', parseInt(e.target.value) || 0)}
@@ -361,10 +307,11 @@ export default function NuevoTitulo() {
                 </div>
 
                 <div className="lg:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label htmlFor="titulo-descripcion" className="block text-sm font-semibold text-gray-700 mb-3">
                     Descripción *
                   </label>
                   <textarea
+                    id="titulo-descripcion"
                     value={form.descripcion}
                     onChange={(e) => handleInputChange('descripcion', e.target.value)}
                     rows={4}
@@ -392,7 +339,7 @@ export default function NuevoTitulo() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Imagen de portada */}
                 <div className="space-y-4">
-                  <label className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="image-upload" className="block text-sm font-semibold text-gray-700">
                     📸 Imagen de portada
                   </label>
                   {form.imagen_portada ? (
@@ -463,7 +410,7 @@ export default function NuevoTitulo() {
 
                 {/* Video/Trailer */}
                 <div className="space-y-4">
-                  <label className="block text-sm font-semibold text-gray-700">
+                  <label htmlFor="video-upload" className="block text-sm font-semibold text-gray-700">
                     🎬 Video/Trailer
                   </label>
                   {form.url_video ? (
@@ -536,10 +483,11 @@ export default function NuevoTitulo() {
 
               {/* URL alternativa */}
               <div className="mt-8 p-6 bg-gray-50 rounded-xl">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label htmlFor="url-video" className="block text-sm font-semibold text-gray-700 mb-3">
                   🔗 URL de video (alternativa)
                 </label>
                 <Input
+                  id="url-video"
                   type="url"
                   value={form.url_video}
                   onChange={(e) => handleInputChange('url_video', e.target.value)}
@@ -605,7 +553,7 @@ export default function NuevoTitulo() {
             >
               <Save className="w-4 h-4" />
               <span>
-                {loading ? 'Guardando...' : uploading ? 'Subiendo archivos...' : 'Guardar Título'}
+                {getButtonText()}
               </span>
             </Button>
           </div>
