@@ -1,22 +1,34 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Play, Star, ArrowRight, Film, Users, Crown, AlertCircle } from 'lucide-react'
-import { Button, Card, CardContent, Badge, LoadingSpinner, Alert } from '@/components/ui'
-import TrailerCard from '../components/TrailerCard'
-import Navbar from '../components/Navbar'
+import { Play, ArrowRight, Film, Users, Crown, AlertCircle } from 'lucide-react'
+import { Button, Card, CardContent, LoadingSpinner, Alert } from '@/components/ui'
+import TrailerCard from '@/components/TrailerCard'
+import Navbar from '@/components/Navbar'
+
+// Definir el tipo para los trailers basado en la estructura de la base de datos
+interface Trailer {
+  id: string
+  nombre: string
+  descripcion: string
+  url_poster: string
+  url_streaming: string
+  tipo: string
+  clasificacion_edad?: string
+  duracion?: number
+  fecha_estreno?: string
+  calificacion?: number
+  visible: boolean
+  fecha_creacion: string
+}
 
 export default function HomePage() {
-  const [trailers, setTrailers] = useState<any[]>([])
+  const [trailers, setTrailers] = useState<Trailer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetchTrailers()
-  }, [])
-
-  const fetchTrailers = async () => {
+  const fetchTrailers = useCallback(async () => {
     try {
       setError('')
       const { data, error } = await supabase
@@ -28,35 +40,61 @@ export default function HomePage() {
 
       if (error) throw error
       setTrailers(data || [])
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching trailers:', error)
-      setError('Error al cargar los trailers. Por favor, intenta de nuevo.')
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar los trailers. Por favor, intenta de nuevo.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const scrollToTrailers = () => {
-    document.getElementById('trailers')?.scrollIntoView({ behavior: 'smooth' })
-  }
+  useEffect(() => {
+    let isMounted = true
+    
+    const loadTrailers = async () => {
+      if (isMounted) {
+        await fetchTrailers()
+      }
+    }
+    
+    loadTrailers()
+    
+    return () => {
+      isMounted = false
+    }
+  }, [fetchTrailers]) // Ahora fetchTrailers es estable gracias a useCallback
+
+  const scrollToTrailers = useCallback(() => {
+    const trailersElement = document.getElementById('trailers')
+    if (trailersElement) {
+      trailersElement.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [])
+
+  const handleRetry = useCallback(() => {
+    setLoading(true)
+    setError('')
+    fetchTrailers()
+  }, [fetchTrailers])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navbar />
       
       {/* Hero Section Mejorado */}
-      <div className="relative overflow-hidden pt-16">
+      <header className="hero-section relative overflow-hidden" aria-labelledby="main-heading">
         <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-purple-600/20"></div>
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-          <div className="text-center">
+        <div className="container-hero relative py-24">
+          <div className="text-center animate-fadeInUp">
             <div className="flex justify-center mb-6">
-              <div className="p-4 bg-red-600/20 rounded-full backdrop-blur-sm">
+              <div className="p-4 bg-red-600/20 rounded-full backdrop-blur-sm animate-float">
                 <Film className="h-16 w-16 text-red-500" />
               </div>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            <h1 id="main-heading" className="text-5xl md:text-7xl font-bold mb-6 text-gradient">
               WatchHub
             </h1>
             
@@ -71,33 +109,31 @@ export default function HomePage() {
                   size="xl"
                   variant="gradient"
                   icon={<Crown className="h-5 w-5" />}
-                  className="min-w-[200px]"
+                  className="min-w-[200px] hover-lift"
                 >
                   Comenzar Gratis
                 </Button>
               </Link>
-              
-
               
               <Button
                 size="xl"
                 variant="ghost"
                 icon={<Play className="h-5 w-5" />}
                 onClick={scrollToTrailers}
-                className="min-w-[200px]"
+                className="min-w-[200px] hover-lift"
               >
                 Ver Trailers
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Features Section Mejorado */}
-      <div className="py-16 bg-gray-800/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+      <section className="section-padding bg-gray-800/50 backdrop-blur-sm" aria-labelledby="features-title">
+        <div className="container-responsive">
+          <div className="text-center mb-12 animate-fadeInUp">
+            <h2 id="features-title" className="text-3xl md:text-4xl font-bold text-white mb-4">
               ¿Por qué elegir WatchHub?
             </h2>
             <p className="text-gray-400 max-w-2xl mx-auto text-lg">
@@ -105,8 +141,8 @@ export default function HomePage() {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300">
+          <div className="grid-features">
+            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300 hover-lift">
               <CardContent className="p-8">
                 <div className="bg-red-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-red-500 group-hover:scale-110 transition-all duration-300">
                   <Film className="h-8 w-8 text-white" />
@@ -120,7 +156,7 @@ export default function HomePage() {
               </CardContent>
             </Card>
             
-            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300">
+            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300 hover-lift">
               <CardContent className="p-8">
                 <div className="bg-red-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-red-500 group-hover:scale-110 transition-all duration-300">
                   <Users className="h-8 w-8 text-white" />
@@ -134,7 +170,7 @@ export default function HomePage() {
               </CardContent>
             </Card>
             
-            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300">
+            <Card variant="elevated" className="text-center group hover:border-red-500/50 transition-all duration-300 hover-lift">
               <CardContent className="p-8">
                 <div className="bg-red-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-red-500 group-hover:scale-110 transition-all duration-300">
                   <Crown className="h-8 w-8 text-white" />
@@ -149,13 +185,13 @@ export default function HomePage() {
             </Card>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Trailers Section Mejorado */}
-      <div id="trailers" className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+      <section id="trailers" className="section-padding" aria-labelledby="trailers-title">
+        <div className="container-responsive">
+          <div className="text-center mb-12 animate-fadeInUp">
+            <h2 id="trailers-title" className="text-3xl md:text-4xl font-bold text-white mb-4">
               Trailers Destacados
             </h2>
             <p className="text-gray-400 text-lg">
@@ -176,16 +212,19 @@ export default function HomePage() {
             />
           )}
           
-          {loading ? (
+          {/* Estados de carga y contenido */}
+          {loading && (
             <div className="flex flex-col items-center justify-center py-16">
               <LoadingSpinner 
                 size="lg" 
                 text="Cargando trailers increíbles..." 
-                className="mb-4"
+                className="mb-4 loading-shimmer"
               />
             </div>
-          ) : trailers.length === 0 ? (
-            <Card variant="outline" className="text-center py-16">
+          )}
+          
+          {!loading && trailers.length === 0 && (
+            <Card variant="outline" className="text-center py-16 hover-lift">
               <CardContent>
                 <Film className="h-16 w-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">
@@ -196,31 +235,33 @@ export default function HomePage() {
                 </p>
                 <Button 
                   variant="outline" 
-                  onClick={() => {
-                    setLoading(true)
-                    fetchTrailers()
-                  }}
+                  onClick={handleRetry}
+                  className="hover-lift"
                 >
                   Reintentar
                 </Button>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          )}
+          
+          {!loading && trailers.length > 0 && (
+            <div className="grid-responsive">
               {trailers.map((trailer) => (
-                <TrailerCard key={trailer.id} titulo={trailer} />
+                <div key={trailer.id} className="hover-lift">
+                  <TrailerCard titulo={trailer} />
+                </div>
               ))}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* CTA Section Mejorado */}
-      <div className="py-16 bg-gradient-to-r from-red-600/10 via-purple-600/10 to-red-600/10">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <Card variant="glass" className="p-12 border-red-500/20">
+      <section className="section-padding bg-gradient-to-r from-red-600/10 via-purple-600/10 to-red-600/10">
+        <div className="max-w-4xl mx-auto text-center container-responsive">
+          <Card variant="glass" className="p-12 border-red-500/20 hover-glow">
             <CardContent className="space-y-6">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 text-gradient">
                 ¿Listo para comenzar tu aventura?
               </h2>
               <p className="text-xl text-gray-300 mb-8 leading-relaxed">
@@ -233,7 +274,7 @@ export default function HomePage() {
                     variant="gradient"
                     icon={<ArrowRight className="h-5 w-5" />}
                     iconPosition="right"
-                    className="min-w-[200px]"
+                    className="min-w-[200px] hover-lift"
                   >
                     Comenzar Ahora
                   </Button>
@@ -242,7 +283,7 @@ export default function HomePage() {
                   <Button
                     size="xl"
                     variant="outline"
-                    className="min-w-[200px]"
+                    className="min-w-[200px] hover-lift"
                   >
                     Ya tengo cuenta
                   </Button>
@@ -251,51 +292,51 @@ export default function HomePage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </section>
 
       {/* Footer Mejorado */}
-      <footer className="bg-gray-900 border-t border-gray-800 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <footer className="bg-gray-900 border-t border-gray-800 section-padding" role="contentinfo" aria-label="Información de la empresa y enlaces de navegación">
+        <div className="container-responsive">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Film className="h-8 w-8 text-red-500" />
-                <span className="text-2xl font-bold text-white">WatchHub</span>
+            <div className="animate-fadeInUp">
+              <div className="flex items-center space-x-2 mb-4 hover-lift">
+                <Film className="h-8 w-8 text-red-500" aria-hidden="true" />
+                <span className="text-2xl font-bold text-white text-gradient">WatchHub</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
                 La plataforma de streaming que conecta a las familias con el mejor entretenimiento.
               </p>
             </div>
             
-            <div>
-              <h4 className="text-white font-semibold mb-4">Contenido</h4>
+            <nav className="animate-fadeInUp" aria-labelledby="content-nav">
+              <h4 id="content-nav" className="text-white font-semibold mb-4">Contenido</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white transition-colors">Películas</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Series</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Documentales</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Infantil</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Películas</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Series</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Documentales</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Infantil</Link></li>
               </ul>
-            </div>
+            </nav>
             
-            <div>
-              <h4 className="text-white font-semibold mb-4">Soporte</h4>
+            <nav className="animate-fadeInUp" aria-labelledby="support-nav">
+              <h4 id="support-nav" className="text-white font-semibold mb-4">Soporte</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white transition-colors">Centro de Ayuda</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Contacto</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Términos de Uso</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Privacidad</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Centro de Ayuda</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Contacto</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Términos de Uso</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Privacidad</Link></li>
               </ul>
-            </div>
+            </nav>
             
-            <div>
-              <h4 className="text-white font-semibold mb-4">Empresa</h4>
+            <nav className="animate-fadeInUp" aria-labelledby="company-nav">
+              <h4 id="company-nav" className="text-white font-semibold mb-4">Empresa</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#" className="hover:text-white transition-colors">Acerca de</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Carreras</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Prensa</Link></li>
-                <li><Link href="#" className="hover:text-white transition-colors">Inversores</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Acerca de</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Carreras</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Prensa</Link></li>
+                <li><Link href="#" className="hover:text-white transition-colors hover-lift">Inversores</Link></li>
               </ul>
-            </div>
+            </nav>
           </div>
           
           <div className="border-t border-gray-800 pt-8 text-center">

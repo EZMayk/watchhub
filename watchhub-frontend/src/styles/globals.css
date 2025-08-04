@@ -1,30 +1,362 @@
 @import "tailwindcss";
 
-
-
+/* ===== VARIABLES DE DISEÑO WATCHHUB ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colores base del tema oscuro WatchHub */
+  --background: 220 13% 6%;         /* #0f0f0f - Negro profundo */
+  --foreground: 210 40% 98%;        /* #fafafa - Blanco casi puro */
+  --card: 220 13% 7%;               /* #121212 - Gris muy oscuro */
+  --card-foreground: 210 40% 98%;   /* #fafafa - Blanco */
+  --popover: 220 13% 9%;            /* #171717 - Gris oscuro */
+  --popover-foreground: 210 40% 98%; /* #fafafa - Blanco */
+  
+  /* Colores primarios WatchHub (Rojo a Púrpura) */
+  --primary: 0 84% 60%;             /* #dc2626 - Rojo vibrante */
+  --primary-foreground: 210 40% 98%; /* #fafafa - Blanco */
+  --secondary: 215 28% 17%;         /* #1f2937 - Gris azulado */
+  --secondary-foreground: 210 40% 98%; /* #fafafa - Blanco */
+  
+  /* Colores de acento púrpura */
+  --accent: 280 83% 57%;            /* #b946ff - Púrpura vibrante */
+  --accent-foreground: 210 40% 98%; /* #fafafa - Blanco */
+  
+  /* Estados y utilidades */
+  --muted: 215 28% 17%;             /* #1f2937 - Gris medio */
+  --muted-foreground: 215 20% 65%;  /* #9ca3af - Gris claro */
+  --border: 215 28% 17%;            /* #1f2937 - Bordes sutiles */
+  --input: 215 28% 17%;             /* #1f2937 - Campos de entrada */
+  --ring: 0 84% 60%;                /* #dc2626 - Anillo de foco */
+  
+  /* Estados de validación */
+  --destructive: 0 84% 60%;         /* #dc2626 - Rojo para errores */
+  --destructive-foreground: 210 40% 98%; /* #fafafa - Blanco */
+  
+  /* Gradientes personalizados */
+  --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(280 83% 57%) 100%);
+  --gradient-dark: linear-gradient(135deg, hsl(220 13% 6%) 0%, hsl(215 28% 17%) 50%, hsl(220 13% 6%) 100%);
+  
+  /* Sombras premium */
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(220, 38, 38, 0.3);
+  
+  /* Radio de bordes */
+  --radius: 0.75rem;                /* 12px - Bordes redondeados */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===== ESTILOS BASE GLOBALES ===== */
+* {
+  border-color: hsl(var(--border));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== CLASES UTILITARIAS WATCHHUB ===== */
+
+/* Contenedores responsivos */
+.container-responsive {
+  margin: 0 auto;
+  max-width: 80rem; /* 1280px */
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-responsive {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-responsive {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.container-hero {
+  margin: 0 auto;
+  max-width: 72rem; /* 1152px */
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-hero {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-hero {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Tarjetas con efectos glass */
+.card-glass {
+  background: rgba(15, 15, 15, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius);
+}
+
+.card-elevated {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius);
+}
+
+.card-outline {
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: border-color 0.3s ease;
+}
+
+.card-outline:hover {
+  border-color: hsl(var(--primary));
+}
+
+/* Efectos de hover premium */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow);
+}
+
+.hover-glow {
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 30px rgba(220, 38, 38, 0.4);
+  transform: scale(1.02);
+}
+
+/* Secciones de página */
+.hero-section {
+  background: var(--gradient-dark);
+  padding: 6rem 0 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.section-padding {
+  padding: 4rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .section-padding {
+    padding: 4rem 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-padding {
+    padding: 4rem 2rem;
+  }
+}
+
+/* Grids responsivos */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.grid-features {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .grid-features {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Botones premium */
+.btn-gradient {
+  background: var(--gradient-primary);
+  color: hsl(var(--primary-foreground));
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.btn-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+  filter: brightness(1.1);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.btn-outline:hover {
+  border-color: hsl(var(--primary));
+  background: rgba(220, 38, 38, 0.1);
+  color: hsl(var(--primary));
+}
+
+/* Campos de entrada */
+.input-field {
+  background: hsl(var(--input));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.input-field::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Texto con gradiente */
+.text-gradient {
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Animaciones elegantes */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Estados de loading mejorados */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .hero-section {
+    padding: 4rem 0 2rem;
+  }
+  
+  .section-padding {
+    padding: 3rem 1rem;
+  }
 }
 
 
