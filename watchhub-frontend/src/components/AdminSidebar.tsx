@@ -13,8 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BarChart3,
-  FolderOpen,
-  Crown
+  FolderOpen
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -95,22 +94,22 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
 
       {/* Sidebar */}
       <div className={`
-        fixed top-0 left-0 z-50 h-full bg-gray-900 text-white transition-all duration-300
+        fixed top-0 left-0 z-50 h-full bg-black border-r border-gray-800 text-white transition-all duration-300
         ${isCollapsed ? 'w-16' : 'w-64'}
         md:translate-x-0
       `}>
         {/* Header del sidebar */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-800">
           {!isCollapsed && (
             <div className="flex items-center space-x-2">
-              <Crown className="w-8 h-8 text-red-500" />
-              <span className="text-xl font-bold">WatchHub Admin</span>
+              <Film className="w-8 h-8 text-red-600" />
+              <span className="text-xl font-bold">WatchHub</span>
             </div>
           )}
           
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
           >
             {isCollapsed ? (
               <ChevronRight className="w-5 h-5" />
@@ -121,16 +120,16 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
         </div>
 
         {/* Información del usuario */}
-        <div className="p-4 border-b border-gray-700">
+        <div className="p-4 border-b border-gray-800">
           {!isCollapsed ? (
             <div>
-              <p className="text-sm font-medium truncate">{userName}</p>
+              <p className="text-sm font-medium truncate text-white">{userName}</p>
               <p className="text-xs text-gray-400">Administrador</p>
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-sm font-bold">
+              <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+                <span className="text-sm font-bold text-white">
                   {userName.charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -139,7 +138,7 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
         </div>
 
         {/* Menú de navegación */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
@@ -149,10 +148,10 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex items-center space-x-3 p-3 rounded-lg transition-colors
+                  flex items-center space-x-3 p-3 rounded-md transition-colors
                   ${isActive 
                     ? 'bg-red-600 text-white' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }
                   ${isCollapsed ? 'justify-center' : ''}
                 `}
@@ -160,10 +159,7 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!isCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{item.description}</p>
-                  </div>
+                  <span className="text-sm font-medium">{item.name}</span>
                 )}
               </Link>
             );
@@ -171,12 +167,12 @@ export default function AdminSidebar({ userName, isCollapsed, setIsCollapsed }: 
         </nav>
 
         {/* Botón de cerrar sesión */}
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-800">
           <button
             onClick={handleSignOut}
             className={`
-              flex items-center space-x-3 p-3 w-full rounded-lg
-              text-gray-300 hover:bg-gray-700 hover:text-white transition-colors
+              flex items-center space-x-3 p-3 w-full rounded-md
+              text-gray-300 hover:bg-gray-800 hover:text-white transition-colors
               ${isCollapsed ? 'justify-center' : ''}
             `}
             title={isCollapsed ? 'Cerrar Sesión' : ''}
