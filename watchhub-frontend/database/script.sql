@@ -1,286 +1,98 @@
--- Tabla: cuentas (sincronizada con auth.users)
-CREATE TABLE cuentas (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  nombre TEXT NOT NULL,
-  apellido TEXT NOT NULL,
-  correo TEXT UNIQUE NOT NULL,
-  rol TEXT DEFAULT 'usuario', -- usuario o admin
-  creada_en TIMESTAMP DEFAULT NOW()
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.app_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  site_name text DEFAULT 'WatchHub'::text,
+  site_description text DEFAULT 'Plataforma de streaming de contenido audiovisual'::text,
+  site_logo text,
+  maintenance_mode boolean DEFAULT false,
+  registration_enabled boolean DEFAULT true,
+  max_upload_size integer DEFAULT 500,
+  allowed_file_types ARRAY DEFAULT ARRAY['mp4'::text, 'avi'::text, 'mkv'::text, 'mov'::text],
+  smtp_host text,
+  smtp_port integer,
+  smtp_user text,
+  smtp_password text,
+  default_user_role text DEFAULT 'usuario'::text,
+  content_moderation boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  featured_trailers ARRAY DEFAULT '{}'::text[],
+  max_homepage_trailers integer DEFAULT 6,
+  CONSTRAINT app_settings_pkey PRIMARY KEY (id)
 );
-
--- Tabla: suscripciones
-CREATE TABLE suscripciones (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cuenta_id UUID REFERENCES cuentas(id),
-  tipo TEXT CHECK (tipo IN ('basico', 'estandar', 'premium')),
-  activa BOOLEAN DEFAULT TRUE,
-  iniciada_en TIMESTAMP DEFAULT NOW(),
-  expira_en TIMESTAMP
+CREATE TABLE public.cuentas (
+  id uuid NOT NULL,
+  nombre text NOT NULL,
+  apellido text NOT NULL,
+  correo text NOT NULL UNIQUE,
+  rol text DEFAULT 'usuario'::text,
+  creada_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT cuentas_pkey PRIMARY KEY (id),
+  CONSTRAINT cuentas_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
-
--- Tabla: perfiles
-CREATE TABLE perfiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cuenta_id UUID REFERENCES cuentas(id),
-  nombre TEXT NOT NULL,
-  tipo TEXT CHECK (tipo IN ('viewer', 'child')),
-  creado_en TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.favoritos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  perfil_id uuid,
+  titulo_id uuid,
+  agregado_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT favoritos_pkey PRIMARY KEY (id),
+  CONSTRAINT favoritos_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
 );
-
--- Tabla: titulos
-CREATE TABLE titulos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre TEXT NOT NULL,
-  categoria TEXT,
-  edad_minima INTEGER DEFAULT 0,
-  tipo TEXT CHECK (tipo IN ('pelicula', 'serie', 'documental')),
-  descripcion TEXT,
-  url_video TEXT,
-  imagen_portada TEXT,
-  visible BOOLEAN DEFAULT TRUE,
-  fecha_creacion TIMESTAMP DEFAULT NOW(),
-  publicado_en TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.historial_visualizacion (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  perfil_id uuid,
+  titulo_id uuid,
+  visto_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT historial_visualizacion_pkey PRIMARY KEY (id),
+  CONSTRAINT historial_visualizacion_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
 );
-
--- Tabla: favoritos
-CREATE TABLE favoritos (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  perfil_id UUID REFERENCES perfiles(id),
-  titulo_id UUID REFERENCES titulos(id),
-  agregado_en TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.perfiles (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cuenta_id uuid,
+  nombre text NOT NULL,
+  tipo text CHECK (tipo = ANY (ARRAY['viewer'::text, 'child'::text])),
+  creado_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT perfiles_pkey PRIMARY KEY (id),
+  CONSTRAINT perfiles_cuenta_id_fkey FOREIGN KEY (cuenta_id) REFERENCES public.cuentas(id)
 );
-
--- Tabla: historial_visualizacion
-CREATE TABLE historial_visualizacion (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  perfil_id UUID REFERENCES perfiles(id),
-  titulo_id UUID REFERENCES titulos(id),
-  visto_en TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.reseñas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  perfil_id uuid,
+  titulo_id uuid,
+  calificacion integer CHECK (calificacion >= 1 AND calificacion <= 5),
+  comentario text,
+  creada_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT reseñas_pkey PRIMARY KEY (id),
+  CONSTRAINT reseñas_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
 );
-
--- Tabla: reseñas
-CREATE TABLE reseñas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  perfil_id UUID REFERENCES perfiles(id),
-  titulo_id UUID REFERENCES titulos(id),
-  calificacion INTEGER CHECK (calificacion BETWEEN 1 AND 5),
-  comentario TEXT,
-  creada_en TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.suscripciones (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  cuenta_id uuid,
+  tipo text CHECK (tipo = ANY (ARRAY['basico'::text, 'estandar'::text, 'premium'::text])),
+  activa boolean DEFAULT true,
+  iniciada_en timestamp without time zone DEFAULT now(),
+  expira_en timestamp without time zone,
+  CONSTRAINT suscripciones_pkey PRIMARY KEY (id),
+  CONSTRAINT suscripciones_cuenta_id_fkey FOREIGN KEY (cuenta_id) REFERENCES public.cuentas(id)
 );
-
--- Datos de ejemplo para titulos
-INSERT INTO titulos (nombre, categoria, edad_minima, tipo, descripcion, url_video, imagen_portada, visible) VALUES
-('Spider-Man: No Way Home', 'Acción', 13, 'pelicula', 'Peter Parker debe enfrentarse a villanos de universos alternativos.', 'https://example.com/spiderman-trailer.mp4', 'https://example.com/spiderman-poster.jpg', true),
-('The Mandalorian', 'Ciencia Ficción', 10, 'serie', 'Un cazarrecompensas mandaloriano navega por la galaxia después de la caída del Imperio.', 'https://example.com/mandalorian-trailer.mp4', 'https://example.com/mandalorian-poster.jpg', true),
-('Dune', 'Ciencia Ficción', 13, 'pelicula', 'Paul Atreides debe navegar por la política peligrosa del planeta Arrakis.', 'https://example.com/dune-trailer.mp4', 'https://example.com/dune-poster.jpg', true),
-('Stranger Things', 'Terror', 14, 'serie', 'Un grupo de niños descubre fenómenos sobrenaturales en su pequeño pueblo.', 'https://example.com/stranger-things-trailer.mp4', 'https://example.com/stranger-things-poster.jpg', true),
-('Top Gun: Maverick', 'Acción', 13, 'pelicula', 'Pete "Maverick" Mitchell regresa como instructor de pilotos de élite.', 'https://example.com/topgun-trailer.mp4', 'https://example.com/topgun-poster.jpg', true),
-('The Crown', 'Drama', 12, 'serie', 'La historia de la reina Isabel II y la familia real británica.', 'https://example.com/crown-trailer.mp4', 'https://example.com/crown-poster.jpg', true);
-
--- ==================================================
--- SINCRONIZACIÓN AUTOMÁTICA CON AUTH.USERS
--- ==================================================
-
--- Función para crear cuenta cuando se registra un usuario
-CREATE OR REPLACE FUNCTION crear_cuenta_desde_auth()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.cuentas (id, nombre, apellido, correo, rol, creada_en)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
-    COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
-    NEW.email,
-    'usuario',
-    NEW.created_at
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger que se ejecuta cuando se crea un usuario en auth.users
-CREATE OR REPLACE TRIGGER trigger_crear_cuenta
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION crear_cuenta_desde_auth();
-
--- Función para actualizar cuenta cuando se actualiza un usuario
-CREATE OR REPLACE FUNCTION actualizar_cuenta_desde_auth()
-RETURNS TRIGGER AS $$
-BEGIN
-  UPDATE public.cuentas
-  SET
-    nombre = COALESCE(NEW.raw_user_meta_data->>'first_name', OLD.raw_user_meta_data->>'first_name', nombre),
-    apellido = COALESCE(NEW.raw_user_meta_data->>'last_name', OLD.raw_user_meta_data->>'last_name', apellido),
-    correo = NEW.email
-  WHERE id = NEW.id;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger que se ejecuta cuando se actualiza un usuario en auth.users
-CREATE OR REPLACE TRIGGER trigger_actualizar_cuenta
-  AFTER UPDATE ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION actualizar_cuenta_desde_auth();
-
--- ==================================================
--- POLÍTICAS DE SEGURIDAD (RLS)
--- ==================================================
-
--- Habilitar RLS en todas las tablas
-ALTER TABLE cuentas ENABLE ROW LEVEL SECURITY;
-ALTER TABLE suscripciones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE perfiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE titulos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE favoritos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE historial_visualizacion ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reseñas ENABLE ROW LEVEL SECURITY;
-
--- Políticas para cuentas
-CREATE POLICY "Los usuarios pueden ver su propia cuenta" ON cuentas
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Los usuarios pueden actualizar su propia cuenta" ON cuentas
-  FOR UPDATE USING (auth.uid() = id);
-
--- Política especial para administradores: pueden ver todas las cuentas
-CREATE POLICY "Los administradores pueden ver todas las cuentas" ON cuentas
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM cuentas admin_check 
-      WHERE admin_check.id = auth.uid() 
-      AND admin_check.rol = 'admin'
-    )
-  );
-
--- Política para que administradores puedan cambiar roles
-CREATE POLICY "Los administradores pueden actualizar cualquier cuenta" ON cuentas
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM cuentas admin_check 
-      WHERE admin_check.id = auth.uid() 
-      AND admin_check.rol = 'admin'
-    )
-  );
-
--- Políticas para titulos (lectura pública)
-CREATE POLICY "Permitir lectura pública de títulos visibles" ON titulos
-  FOR SELECT USING (visible = true);
-
--- Política para administradores: pueden ver todos los títulos
-CREATE POLICY "Los administradores pueden ver todos los títulos" ON titulos
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM cuentas admin_check 
-      WHERE admin_check.id = auth.uid() 
-      AND admin_check.rol = 'admin'
-    )
-  );
-
--- Política para administradores: pueden gestionar títulos (INSERT, UPDATE, DELETE)
-CREATE POLICY "Los administradores pueden gestionar títulos" ON titulos
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM cuentas admin_check 
-      WHERE admin_check.id = auth.uid() 
-      AND admin_check.rol = 'admin'
-    )
-  );
-
--- Políticas para perfiles
-CREATE POLICY "Los usuarios pueden ver sus propios perfiles" ON perfiles
-  FOR ALL USING (cuenta_id = auth.uid());
-
--- Políticas para favoritos
-CREATE POLICY "Los usuarios pueden gestionar sus favoritos" ON favoritos
-  FOR ALL USING (EXISTS (
-    SELECT 1 FROM perfiles WHERE perfiles.id = favoritos.perfil_id AND perfiles.cuenta_id = auth.uid()
-  ));
-
--- Políticas para historial
-CREATE POLICY "Los usuarios pueden ver su historial" ON historial_visualizacion
-  FOR ALL USING (EXISTS (
-    SELECT 1 FROM perfiles WHERE perfiles.id = historial_visualizacion.perfil_id AND perfiles.cuenta_id = auth.uid()
-  ));
-
--- Políticas para reseñas
-CREATE POLICY "Los usuarios pueden gestionar sus reseñas" ON reseñas
-  FOR ALL USING (EXISTS (
-    SELECT 1 FROM perfiles WHERE perfiles.id = reseñas.perfil_id AND perfiles.cuenta_id = auth.uid()
-  ));
-
--- ==================================================
--- FUNCIÓN PARA OBTENER USUARIO CON ROL
--- ==================================================
-
--- Función para obtener el rol del usuario actual
-CREATE OR REPLACE FUNCTION obtener_rol_usuario()
-RETURNS TEXT AS $$
-DECLARE
-  user_role TEXT;
-BEGIN
-  SELECT rol INTO user_role
-  FROM cuentas
-  WHERE id = auth.uid();
-  
-  RETURN COALESCE(user_role, 'usuario');
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Función RPC para obtener rol de usuario específico (bypasa RLS)
-CREATE OR REPLACE FUNCTION get_user_role(user_id UUID)
-RETURNS TEXT AS $$
-DECLARE
-  user_role TEXT;
-BEGIN
-  SELECT rol INTO user_role
-  FROM cuentas
-  WHERE id = user_id;
-  
-  RETURN COALESCE(user_role, 'usuario');
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Función RPC para contar usuarios (bypasa RLS) 
-CREATE OR REPLACE FUNCTION get_user_count()
-RETURNS INTEGER AS $$
-DECLARE
-  user_count INTEGER;
-BEGIN
-  SELECT COUNT(*) INTO user_count FROM cuentas;
-  RETURN user_count;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Función para verificar si un usuario es admin
-CREATE OR REPLACE FUNCTION is_admin(user_id UUID DEFAULT auth.uid())
-RETURNS BOOLEAN AS $$
-DECLARE
-  user_role TEXT;
-BEGIN
-  SELECT rol INTO user_role FROM cuentas WHERE id = user_id;
-  RETURN COALESCE(user_role = 'admin', false);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Tabla: app_settings (configuración de la aplicación)
-CREATE TABLE app_settings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_name TEXT DEFAULT 'WatchHub',
-  site_description TEXT DEFAULT 'Plataforma de streaming de contenido audiovisual',
-  site_logo TEXT,
-  maintenance_mode BOOLEAN DEFAULT FALSE,
-  registration_enabled BOOLEAN DEFAULT TRUE,
-  max_upload_size INTEGER DEFAULT 500, -- MB
-  allowed_file_types TEXT[] DEFAULT ARRAY['mp4', 'avi', 'mkv', 'mov'],
-  smtp_host TEXT,
-  smtp_port INTEGER,
-  smtp_user TEXT,
-  smtp_password TEXT,
-  default_user_role TEXT DEFAULT 'usuario',
-  content_moderation BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.titulos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  titulo text NOT NULL,
+  descripcion text,
+  tipo text NOT NULL CHECK (tipo = ANY (ARRAY['pelicula'::text, 'serie'::text, 'documental'::text, 'trailer'::text])),
+  categoria text,
+  año integer,
+  duracion text,
+  director text,
+  actores text,
+  genero text,
+  edad_minima integer DEFAULT 0,
+  url_video text,
+  imagen_portada text,
+  visible boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT titulos_pkey PRIMARY KEY (id)
 );
-

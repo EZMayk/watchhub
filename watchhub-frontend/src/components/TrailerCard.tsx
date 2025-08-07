@@ -2,48 +2,83 @@
 'use client'
 import Hls from 'hls.js'
 import { useRef, useEffect, useState } from 'react'
-import { Play, Star, Calendar, Clock } from 'lucide-react'
+import { Play, Calendar, Clock } from 'lucide-react'
 import { Card, CardContent, Button, Badge, Modal } from './ui'
 
 interface TrailerCardProps {
   titulo: {
     id: string
-    nombre: string
+    titulo: string
     descripcion: string
-    url_poster: string
-    url_streaming: string
+    imagen_portada: string
+    url_video: string
     tipo: string
-    clasificacion_edad?: string
-    duracion?: number
-    fecha_estreno?: string
-    calificacion?: number
+    categoria: string
+    año: number
+    duracion: string
+    director: string
+    actores: string
+    genero: string
+    edad_minima: number
+    visible: boolean
+    created_at: string
+    updated_at: string
   }
 }
 
-export default function TrailerCard({ titulo }: TrailerCardProps) {
+export default function TrailerCard({ titulo }: Readonly<TrailerCardProps>) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [showPlayer, setShowPlayer] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [isVideoLoading, setIsVideoLoading] = useState(false)
 
   useEffect(() => {
     if (videoRef.current && showPlayer) {
-      const hls = new Hls()
-      hls.loadSource(titulo.url_streaming)
-      hls.attachMedia(videoRef.current)
+      const video = videoRef.current
+      setIsVideoLoading(true)
+      
+      const handleLoadStart = () => setIsVideoLoading(true)
+      const handleCanPlay = () => setIsVideoLoading(false)
+      const handleError = () => setIsVideoLoading(false)
+      
+      video.addEventListener('loadstart', handleLoadStart)
+      video.addEventListener('canplay', handleCanPlay)
+      video.addEventListener('error', handleError)
+      
+      if (titulo.url_video.endsWith('.m3u8')) {
+        // Para videos HLS
+        if (Hls.isSupported()) {
+          const hls = new Hls()
+          hls.loadSource(titulo.url_video)
+          hls.attachMedia(video)
+          
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('Error HLS:', data)
+            setIsVideoLoading(false)
+          })
+          
+          return () => {
+            hls.destroy()
+            video.removeEventListener('loadstart', handleLoadStart)
+            video.removeEventListener('canplay', handleCanPlay)
+            video.removeEventListener('error', handleError)
+          }
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari nativo
+          video.src = titulo.url_video
+        }
+      } else {
+        // Para videos regulares (MP4, etc.)
+        video.src = titulo.url_video
+      }
+      
+      return () => {
+        video.removeEventListener('loadstart', handleLoadStart)
+        video.removeEventListener('canplay', handleCanPlay)
+        video.removeEventListener('error', handleError)
+      }
     }
-  }, [showPlayer, titulo.url_streaming])
-
-  const formatDuration = (minutes?: number) => {
-    if (!minutes) return ''
-    const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
-  }
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return ''
-    return new Date(dateString).getFullYear()
-  }
+  }, [showPlayer, titulo.url_video])
 
   return (
     <>
@@ -56,9 +91,13 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
         {/* Imagen del poster */}
         <div className="relative overflow-hidden">
           <img 
-            src={titulo.url_poster} 
-            alt={titulo.nombre} 
-            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110" 
+            src={titulo.imagen_portada}
+            alt={titulo.titulo}
+            className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-110"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              target.src = '/placeholder-movie.jpg' // Agregar imagen por defecto
+            }}
           />
           
           {/* Overlay con botón de play */}
@@ -82,10 +121,10 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
           </div>
           
           {/* Clasificación de edad */}
-          {titulo.clasificacion_edad && (
+          {Boolean(titulo.edad_minima) && (
             <div className="absolute top-2 left-2">
               <Badge variant="outline" className="bg-black/70">
-                {titulo.clasificacion_edad}
+                {titulo.edad_minima}+
               </Badge>
             </div>
           )}
@@ -94,7 +133,7 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
         <CardContent className="p-4">
           {/* Título */}
           <h3 className="text-lg font-semibold text-white mb-2 line-clamp-1 group-hover:text-red-400 transition-colors">
-            {titulo.nombre}
+            {titulo.titulo}
           </h3>
           
           {/* Descripción */}
@@ -105,24 +144,17 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
           {/* Metadata */}
           <div className="flex items-center justify-between text-xs text-gray-500">
             <div className="flex items-center space-x-3">
-              {titulo.calificacion && (
-                <div className="flex items-center space-x-1">
-                  <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                  <span>{titulo.calificacion.toFixed(1)}</span>
-                </div>
-              )}
-              
-              {titulo.fecha_estreno && (
+              {Boolean(titulo.año) && (
                 <div className="flex items-center space-x-1">
                   <Calendar className="h-3 w-3" />
-                  <span>{formatDate(titulo.fecha_estreno)}</span>
+                  <span>{titulo.año}</span>
                 </div>
               )}
               
               {titulo.duracion && (
                 <div className="flex items-center space-x-1">
                   <Clock className="h-3 w-3" />
-                  <span>{formatDuration(titulo.duracion)}</span>
+                  <span>{titulo.duracion}</span>
                 </div>
               )}
             </div>
@@ -134,18 +166,27 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
       <Modal
         isOpen={showPlayer}
         onClose={() => setShowPlayer(false)}
-        title={titulo.nombre}
+        title={titulo.titulo}
         size="xl"
       >
         <div className="p-6">
-          <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+          <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
+            {isVideoLoading && (
+              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+              </div>
+            )}
             <video
               ref={videoRef}
               controls
               autoPlay
               className="w-full h-full"
-              poster={titulo.url_poster}
+              poster={titulo.imagen_portada}
+              onLoadStart={() => setIsVideoLoading(true)}
+              onCanPlay={() => setIsVideoLoading(false)}
+              onError={() => setIsVideoLoading(false)}
             >
+              <track kind="captions" srcLang="es" label="Español" />
               Tu navegador no soporta video.
             </video>
           </div>
@@ -153,8 +194,8 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Badge variant="default">{titulo.tipo}</Badge>
-              {titulo.clasificacion_edad && (
-                <Badge variant="outline">{titulo.clasificacion_edad}</Badge>
+              {Boolean(titulo.edad_minima) && (
+                <Badge variant="outline">{titulo.edad_minima}+</Badge>
               )}
             </div>
             
@@ -162,25 +203,18 @@ export default function TrailerCard({ titulo }: TrailerCardProps) {
               {titulo.descripcion}
             </p>
             
-            <div className="flex items-center space-x-6 text-sm text-gray-400">
-              {titulo.calificacion && (
-                <div className="flex items-center space-x-1">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span>{titulo.calificacion.toFixed(1)}/10</span>
-                </div>
-              )}
-              
-              {titulo.fecha_estreno && (
+            <div className="flex items-center space-x-6 text-sm text-gray-400">              
+              {Boolean(titulo.año) && (
                 <div className="flex items-center space-x-1">
                   <Calendar className="h-4 w-4" />
-                  <span>{formatDate(titulo.fecha_estreno)}</span>
+                  <span>{titulo.año}</span>
                 </div>
               )}
               
               {titulo.duracion && (
                 <div className="flex items-center space-x-1">
                   <Clock className="h-4 w-4" />
-                  <span>{formatDuration(titulo.duracion)}</span>
+                  <span>{titulo.duracion}</span>
                 </div>
               )}
             </div>

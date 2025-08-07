@@ -8,20 +8,24 @@ import TrailerCard from '@/components/TrailerCard'
 import LandingNavbar from '@/components/LandingNavbar'
 import { useAppSettings } from '@/hooks/useAppSettings'
 
-// Definir el tipo para los trailers basado en la estructura de la base de datos
+// Definir el tipo para los trailers basado en la estructura real de la base de datos
 interface Trailer {
   id: string
-  nombre: string
+  titulo: string
   descripcion: string
-  url_poster: string
-  url_streaming: string
   tipo: string
-  clasificacion_edad?: string
-  duracion?: number
-  fecha_estreno?: string
-  calificacion?: number
+  categoria: string
+  año: number
+  duracion: string
+  director: string
+  actores: string
+  genero: string
+  edad_minima: number
+  url_video: string
+  imagen_portada: string
   visible: boolean
-  fecha_creacion: string
+  created_at: string
+  updated_at: string
 }
 
 export default function HomePage() {
@@ -40,18 +44,79 @@ export default function HomePage() {
   const fetchTrailers = useCallback(async () => {
     try {
       setError('')
-      const { data, error } = await supabase
-        .from('titulos')
-        .select('*')
-        .eq('visible', true)
-        .limit(6)
-        .order('fecha_creacion', { ascending: false })
+      console.log('🔄 Cargando títulos desde la base de datos...');
+      
+      // Primero obtenemos los trailers destacados configurados por el admin
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('app_settings')
+        .select('featured_trailers, max_homepage_trailers')
+        .limit(1)
+        .single();
 
-      if (error) throw error
-      setTrailers(data || [])
+      let trailersData: Trailer[] | null, trailersError: any;
+
+      if (settingsError) {
+        console.warn('⚠️ No se pudo cargar configuración de trailers destacados:', settingsError);
+        // Si no hay configuración, mostrar los más recientes como fallback
+        const fallbackResult = await supabase
+          .from('titulos')
+          .select('*')
+          .eq('visible', true)
+          .limit(6)
+          .order('created_at', { ascending: false });
+        
+        trailersData = fallbackResult.data;
+        trailersError = fallbackResult.error;
+      } else {
+        const { featured_trailers, max_homepage_trailers } = settingsData;
+        
+        if (featured_trailers && featured_trailers.length > 0) {
+          console.log(`🎯 Cargando ${featured_trailers.length} trailers destacados seleccionados por el admin`);
+          
+          // Cargar los trailers destacados específicos
+          const featuredResult = await supabase
+            .from('titulos')
+            .select('*')
+            .in('id', featured_trailers)
+            .eq('visible', true);
+          
+          trailersData = featuredResult.data;
+          trailersError = featuredResult.error;
+          
+          // Ordenar según el orden definido por el admin
+          if (trailersData) {
+            trailersData = featured_trailers
+              .map((id: string) => trailersData?.find((trailer: Trailer) => trailer.id === id))
+              .filter(Boolean);
+          }
+        } else {
+          console.log('📋 No hay trailers destacados configurados, mostrando los más recientes');
+          
+          // Fallback: mostrar los más recientes
+          const recentResult = await supabase
+            .from('titulos')
+            .select('*')
+            .eq('visible', true)
+            .limit(max_homepage_trailers || 6)
+            .order('created_at', { ascending: false });
+          
+          trailersData = recentResult.data;
+          trailersError = recentResult.error;
+        }
+      }
+
+      console.log('📊 Respuesta de la consulta:', { data: trailersData, error: trailersError });
+
+      if (trailersError) {
+        console.error('❌ Error en la consulta:', trailersError);
+        throw trailersError;
+      }
+      
+      console.log(`✅ Se encontraron ${trailersData?.length || 0} títulos`);
+      setTrailers(trailersData || [])
     } catch (error) {
       console.error('Error fetching trailers:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Error al cargar los trailers. Por favor, intenta de nuevo.'
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar los títulos. Por favor, intenta de nuevo.'
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -261,10 +326,10 @@ export default function HomePage() {
         <div className="container-responsive">
           <div className="text-center mb-12 animate-fadeInUp">
             <h2 id="trailers-title" className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Trailers Destacados
+              Contenido Destacado
             </h2>
             <p className="text-gray-400 text-lg">
-              Descubre las mejores películas y series del momento
+              Los mejores títulos seleccionados especialmente para ti
             </p>
           </div>
 
@@ -314,13 +379,23 @@ export default function HomePage() {
           )}
           
           {!loading && trailers.length > 0 && (
-            <div className="grid-responsive">
-              {trailers.map((trailer) => (
-                <div key={trailer.id} className="hover-lift">
-                  <TrailerCard titulo={trailer} />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="grid-responsive">
+                {trailers.map((trailer) => (
+                  <div key={trailer.id} className="hover-lift">
+                    <TrailerCard titulo={trailer} />
+                  </div>
+                ))}
+              </div>
+              
+              {/* Indicador de contenido destacado */}
+              <div className="text-center mt-8">
+                <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
+                  <Crown className="h-4 w-4 text-yellow-500" />
+                  Contenido seleccionado por nuestro equipo
+                </p>
+              </div>
+            </>
           )}
         </div>
       </section>

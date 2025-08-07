@@ -29,15 +29,22 @@ import { Button, Input, Modal, Card, CardContent, Alert, Badge } from '@/compone
 
 interface Titulo {
   id: string;
-  nombre: string;
+  titulo: string;
   categoria: string;
   edad_minima: number;
-  tipo: 'pelicula' | 'serie' | 'documental';
+  tipo: 'pelicula' | 'serie' | 'documental' | 'trailer';
   descripcion: string;
+  año?: number;
+  duracion?: string;
+  director?: string;
+  actores?: string;
+  genero?: string;
   url_video: string;
   imagen_portada: string;
   visible: boolean;
-  fecha_creacion: string;
+  created_at?: string;
+  updated_at?: string;
+  fecha_creacion?: string;
 }
 
 interface TituloStats {
@@ -47,6 +54,7 @@ interface TituloStats {
   movies: number;
   series: number;
   documentaries: number;
+  trailers: number;
 }
 
 interface FilterState {
@@ -140,19 +148,37 @@ export default function AdminTitulos() {
       setError('');
       setConnectionStatus('checking');
       
-      const { data, error } = await supabase
-        .from('titulos')
-        .select('*')
-        .order('fecha_creacion', { ascending: false });
-
-      if (error) {
-        if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
-          throw new Error('Sin conexión a internet o problemas con el servidor. Verifica tu conexión.');
+      // Primero intentar con created_at, si falla, probar con fecha_creacion, o sin orden
+      let query = supabase.from('titulos').select('*');
+      
+      try {
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (error && error.message.includes('created_at')) {
+          throw error;
         }
-        throw error;
+        setTitulos(data || []);
+      } catch (orderError) {
+        console.log('🔄 Reintentando sin ordenamiento específico...');
+        const { data, error } = await supabase.from('titulos').select('*');
+        
+        if (error) {
+          if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+            throw new Error('Sin conexión a internet o problemas con el servidor. Verifica tu conexión.');
+          }
+          throw error;
+        }
+        
+        // Ordenar manualmente por id si no hay columnas de fecha
+        const sortedData = (data || []).sort((a, b) => {
+          if (a.id && b.id) {
+            return b.id.localeCompare(a.id);
+          }
+          return 0;
+        });
+        
+        setTitulos(sortedData);
       }
       
-      setTitulos(data || []);
       setConnectionStatus('connected');
       setLastUpdated(new Date());
     } catch (error) {
@@ -225,9 +251,12 @@ export default function AdminTitulos() {
 
   const filteredTitulos = useMemo(() => {
     return titulos.filter(titulo => {
-      const matchesSearch = titulo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = titulo.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            titulo.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           titulo.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+                           titulo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (titulo.director && titulo.director.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (titulo.actores && titulo.actores.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (titulo.genero && titulo.genero.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesType = filterType === 'all' || titulo.tipo === filterType;
       const matchesVisible = filterVisible === 'all' || 
@@ -247,10 +276,12 @@ export default function AdminTitulos() {
       movies: titulos.filter(t => t.tipo === 'pelicula').length,
       series: titulos.filter(t => t.tipo === 'serie').length,
       documentaries: titulos.filter(t => t.tipo === 'documental').length,
+      trailers: titulos.filter(t => t.tipo === 'trailer').length,
     };
   }, [titulos]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Sin fecha';
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'short',
@@ -258,11 +289,53 @@ export default function AdminTitulos() {
     });
   };
 
+  const getOriginalUrl = (url: string) => {
+    if (!url) return url;
+    
+    // Si es una URL de embed, convertirla a URL normal
+    if (url.includes('youtube.com/embed/')) {
+      const videoId = url.split('embed/')[1]?.split('?')[0];
+      return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+    
+    // Si ya es una URL normal, devolverla tal como está
+    return url;
+  };
+
+  const getEmbedUrl = (url: string) => {
+    if (!url) return url;
+    
+    // Si ya es una URL de embed de YouTube, devolverla tal como está
+    if (url.includes('youtube.com/embed/') || url.includes('youtu.be/embed/')) {
+      return url;
+    }
+    
+    // Convertir URL normal de YouTube a embed
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Convertir URL corta de YouTube a embed
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Para otras URLs (como archivos de video directo), devolverlas tal como están
+    return url;
+  };
+
+  const getCreatedDate = (titulo: Titulo) => {
+    return titulo.created_at || titulo.updated_at || titulo.fecha_creacion || '';
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'pelicula': return 'bg-blue-600 text-white';
       case 'serie': return 'bg-green-600 text-white';
       case 'documental': return 'bg-purple-600 text-white';
+      case 'trailer': return 'bg-orange-600 text-white';
       default: return 'bg-gray-600 text-white';
     }
   };
@@ -272,6 +345,7 @@ export default function AdminTitulos() {
       case 'pelicula': return 'Película';
       case 'serie': return 'Serie';
       case 'documental': return 'Documental';
+      case 'trailer': return 'Trailer';
       default: return type;
     }
   };
@@ -421,7 +495,14 @@ export default function AdminTitulos() {
               <div>
                 <p className="text-sm font-medium text-gray-400">Más Popular</p>
                 <p className="text-lg font-semibold text-white">
-                  {stats.movies >= stats.series ? 'Películas' : 'Series'}
+                  {(() => {
+                    const max = Math.max(stats.movies, stats.series, stats.documentaries, stats.trailers);
+                    if (max === stats.movies) return 'Películas';
+                    if (max === stats.series) return 'Series';
+                    if (max === stats.documentaries) return 'Documentales';
+                    if (max === stats.trailers) return 'Trailers';
+                    return 'N/A';
+                  })()}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-500" />
@@ -495,6 +576,7 @@ export default function AdminTitulos() {
             <option value="pelicula">Películas</option>
             <option value="serie">Series</option>
             <option value="documental">Documentales</option>
+            <option value="trailer">Trailers</option>
           </select>
           
           <select
@@ -531,7 +613,7 @@ export default function AdminTitulos() {
               {titulo.imagen_portada ? (
                 <img
                   src={titulo.imagen_portada}
-                  alt={titulo.nombre}
+                  alt={titulo.titulo}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -599,7 +681,7 @@ export default function AdminTitulos() {
             <div className="p-4">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-white truncate flex-1 group-hover:text-red-400 transition-colors">
-                  {titulo.nombre}
+                  {titulo.titulo}
                 </h3>
                 <span className="ml-2 text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
                   +{titulo.edad_minima}
@@ -615,9 +697,21 @@ export default function AdminTitulos() {
                   <Tag className="w-3 h-3 mr-1" />
                   <span className="truncate">{titulo.categoria}</span>
                 </div>
-                <div className="flex items-center">
-                  <Calendar className="w-3 h-3 mr-1" />
-                  {formatDate(titulo.fecha_creacion)}
+                <div className="flex items-center space-x-2">
+                  {titulo.año && (
+                    <span className="bg-gray-700 px-2 py-1 rounded text-xs">
+                      {titulo.año}
+                    </span>
+                  )}
+                  {titulo.duracion && (
+                    <span className="bg-gray-700 px-2 py-1 rounded text-xs">
+                      {titulo.duracion}
+                    </span>
+                  )}
+                  <div className="flex items-center">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    {formatDate(getCreatedDate(titulo))}
+                  </div>
                 </div>
               </div>
 
@@ -662,7 +756,7 @@ export default function AdminTitulos() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open(titulo.url_video, '_blank')}
+                    onClick={() => window.open(getOriginalUrl(titulo.url_video), '_blank')}
                     className="text-gray-400 hover:text-white"
                     title="Ver en nueva pestaña"
                   >
@@ -723,17 +817,18 @@ export default function AdminTitulos() {
             setShowPreviewModal(false);
             setSelectedTitulo(null);
           }}
-          title={`Vista previa: ${selectedTitulo.nombre}`}
+          title={`Vista previa: ${selectedTitulo.titulo}`}
           size="xl"
         >
           <div className="space-y-4">
             <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
               {selectedTitulo.url_video ? (
                 <iframe
-                  src={selectedTitulo.url_video}
+                  src={getEmbedUrl(selectedTitulo.url_video)}
                   className="w-full h-full"
                   allowFullScreen
-                  title={`Preview de ${selectedTitulo.nombre}`}
+                  title={`Preview de ${selectedTitulo.titulo}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -764,7 +859,38 @@ export default function AdminTitulos() {
                   {selectedTitulo.visible ? 'Publicado' : 'Borrador'}
                 </p>
               </div>
+              {selectedTitulo.año && (
+                <div>
+                  <span className="text-gray-400">Año:</span>
+                  <p className="text-white font-medium">{selectedTitulo.año}</p>
+                </div>
+              )}
+              {selectedTitulo.duracion && (
+                <div>
+                  <span className="text-gray-400">Duración:</span>
+                  <p className="text-white font-medium">{selectedTitulo.duracion}</p>
+                </div>
+              )}
+              {selectedTitulo.director && (
+                <div>
+                  <span className="text-gray-400">Director:</span>
+                  <p className="text-white font-medium">{selectedTitulo.director}</p>
+                </div>
+              )}
+              {selectedTitulo.genero && (
+                <div>
+                  <span className="text-gray-400">Género:</span>
+                  <p className="text-white font-medium">{selectedTitulo.genero}</p>
+                </div>
+              )}
             </div>
+            
+            {selectedTitulo.actores && (
+              <div>
+                <span className="text-gray-400 text-sm">Actores:</span>
+                <p className="text-white mt-1">{selectedTitulo.actores}</p>
+              </div>
+            )}
             
             <div>
               <span className="text-gray-400 text-sm">Descripción:</span>
@@ -824,7 +950,7 @@ export default function AdminTitulos() {
                 {selectedTitulo.imagen_portada ? (
                   <img
                     src={selectedTitulo.imagen_portada}
-                    alt={selectedTitulo.nombre}
+                    alt={selectedTitulo.titulo}
                     className="w-20 h-12 object-cover rounded"
                   />
                 ) : (
@@ -833,13 +959,19 @@ export default function AdminTitulos() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <h4 className="text-white font-semibold">{selectedTitulo.nombre}</h4>
+                  <h4 className="text-white font-semibold">{selectedTitulo.titulo}</h4>
                   <p className="text-gray-400 text-sm">{selectedTitulo.categoria}</p>
+                  {selectedTitulo.director && (
+                    <p className="text-gray-500 text-xs">Dir: {selectedTitulo.director}</p>
+                  )}
                   <div className="flex items-center space-x-2 mt-1">
                     <Badge className={getTypeColor(selectedTitulo.tipo)}>
                       {getTypeName(selectedTitulo.tipo)}
                     </Badge>
                     <span className="text-xs text-gray-500">+{selectedTitulo.edad_minima}</span>
+                    {selectedTitulo.año && (
+                      <span className="text-xs text-gray-500">{selectedTitulo.año}</span>
+                    )}
                   </div>
                 </div>
               </div>
