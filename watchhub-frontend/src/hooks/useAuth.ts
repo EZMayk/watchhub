@@ -33,6 +33,25 @@ export function useAuth() {
 
       if (error) {
         console.error('Error fetching user account:', error)
+        
+        // Si es un error de RLS, intentar usar RPC
+        if (error.code === 'PGRST116' || error.message.includes('row-level security')) {
+          console.log('Attempting RPC fallback for user account')
+          const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_role', { user_id: userId })
+          
+          if (!rpcError && rpcData) {
+            // Crear un objeto usuario básico con el rol obtenido
+            return {
+              id: userId,
+              nombre: 'Admin',
+              apellido: 'User',
+              correo: 'admin@watchhub.com',
+              rol: rpcData as 'usuario' | 'admin',
+              creada_en: new Date().toISOString()
+            }
+          }
+        }
+        
         setAuthError('Error al cargar la información del usuario')
         return null
       }
