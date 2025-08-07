@@ -1,6 +1,6 @@
 'use client';
 
-import { AdminLayout } from '@/components/admin';
+import { AdminLayout } from '@/components/admin/exports';
 
 export default function SubirContenido() {
   return (

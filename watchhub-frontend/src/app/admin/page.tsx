@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AdminLayout } from '@/components/admin';
+import { AdminLayout } from '@/components/admin/exports';
 import { getUserStats, getContentStats } from '@/lib/admin';
 import { 
   Users, 

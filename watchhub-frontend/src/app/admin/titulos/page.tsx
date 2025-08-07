@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AdminLayout } from '@/components/admin';
+import { AdminLayout } from '@/components/admin/exports';
 import { supabase } from '@/lib/supabase';
 import { 
   Film, 
