@@ -3,7 +3,7 @@
 WatchHub es una plataforma moderna de streaming construida con Next.js 15, React 19, Supabase y TypeScript. Ofrece una experiencia similar a Netflix con gestión de contenido, autenticación de usuarios y roles administrativos.
 
 ## ✨ Características
-
+hola
 - 🎥 **Gestión de Contenido**: Administra películas, series y documentales
 - 👤 **Autenticación**: Sistema completo con roles de usuario/admin
 - 🎨 **Diseño Moderno**: Interfaz estilo Netflix con Tailwind CSS
