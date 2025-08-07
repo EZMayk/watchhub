@@ -282,6 +282,34 @@ body {
   animation: gradient-shift 3s ease infinite;
 }
 
+/* ===== CLASES DE UTILIDAD PARA INTERACCIONES ===== */
+
+/* Clase para deshabilitar todas las interacciones */
+.no-hover-interaction {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+.video-playing-no-interaction * {
+  pointer-events: none !important;
+}
+
+/* Overlay para deshabilitar interacciones durante video */
+.modal-overlay-active {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: auto;
+  z-index: 999;
+  background: transparent;
+}
+
+.modal-overlay-active ~ * {
+  pointer-events: none !important;
+}
+
 /* Animaciones elegantes */
 @keyframes gradient-shift {
   0%, 100% { background-position: 0% 50%; }
@@ -626,6 +654,36 @@ body {
 
 .admin-text-muted {
   color: hsl(215 16% 47%);
+}
+
+/* ===== ANIMACIONES PARA EL INDICADOR DE VIDEO ===== */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* Mejora del pulso para el indicador */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 

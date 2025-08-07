@@ -2,11 +2,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Play, ArrowRight, Film, Users, Crown, AlertCircle, Wrench } from 'lucide-react'
+import { Play, ArrowRight, Film, Users, Crown, AlertCircle, Wrench, Video, X } from 'lucide-react'
 import { Button, Card, CardContent, LoadingSpinner, Alert } from '@/components/ui'
 import TrailerCard from '@/components/TrailerCard'
 import LandingNavbar from '@/components/LandingNavbar'
 import { useAppSettings } from '@/hooks/useAppSettings'
+import { useVideoPlayer } from '@/contexts/VideoPlayerContext'
 
 // Definir el tipo para los trailers basado en la estructura real de la base de datos
 interface Trailer {
@@ -35,6 +36,12 @@ export default function HomePage() {
   
   // Obtener configuración dinámica
   const { settings, loading: settingsLoading, error: settingsError } = useAppSettings()
+  
+  // Obtener estado del reproductor de video
+  const { activeVideoId, setActiveVideo } = useVideoPlayer()
+  
+  // Encontrar el trailer activo
+  const activeTrailer = trailers.find(trailer => trailer.id === activeVideoId)
 
   // Actualizar título de la página cuando cambie la configuración
   useEffect(() => {
@@ -188,6 +195,31 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <LandingNavbar />
+      
+      {/* Indicador de video activo */}
+      {activeVideoId && activeTrailer && (
+        <div className="fixed top-16 right-4 z-40 bg-black/90 backdrop-blur-sm border border-red-500/50 rounded-lg p-3 shadow-xl animate-slideInRight">
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <Video className="w-4 h-4 text-red-500" />
+              <span className="text-white text-sm font-medium">Reproduciendo</span>
+            </div>
+            <div className="text-gray-300 text-sm truncate max-w-40">
+              {activeTrailer.titulo}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setActiveVideo(null)}
+              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              title="Detener reproducción"
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      )}
       
       {/* Notificación de error de configuración */}
       {settingsError && (
@@ -382,7 +414,10 @@ export default function HomePage() {
             <>
               <div className="grid-responsive">
                 {trailers.map((trailer) => (
-                  <div key={trailer.id} className="hover-lift">
+                  <div 
+                    key={trailer.id} 
+                    className="hover-lift"
+                  >
                     <TrailerCard titulo={trailer} />
                   </div>
                 ))}

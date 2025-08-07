@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AccessAlert from "@/components/AccessAlert";
+import { VideoPlayerProvider } from "@/contexts/VideoPlayerContext";
 import "../styles/globals.css";
 
 const geistSans = Geist({
@@ -29,8 +30,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <AccessAlert />
+        <VideoPlayerProvider>
+          {children}
+          <AccessAlert />
+        </VideoPlayerProvider>
       </body>
     </html>
   );

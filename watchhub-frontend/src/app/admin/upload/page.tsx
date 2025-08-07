@@ -145,8 +145,6 @@ export default function UploadPage() {
         }
       }
 
-      alert('✅ Conexión a la base de datos exitosa! La tabla está funcionando correctamente.');
-
     } catch (error) {
       console.error('❌ Error verificando la base de datos:', error);
       alert(`❌ Error: ${error instanceof Error ? error.message : 'Error desconocido'}`);

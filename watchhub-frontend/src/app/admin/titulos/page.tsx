@@ -23,7 +23,9 @@ import {
   WifiOff,
   TrendingUp,
   Database,
-  ExternalLink
+  ExternalLink,
+  Save,
+  X
 } from 'lucide-react';
 import { Button, Input, Modal, Card, CardContent, Alert, Badge } from '@/components/ui';
 
@@ -75,11 +77,44 @@ export default function AdminTitulos() {
   const [selectedTitulo, setSelectedTitulo] = useState<Titulo | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTitulo, setEditingTitulo] = useState<Titulo | null>(null);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Funciones para manejar cambios en tiempo real
+  const handleTituloInsert = useCallback((payload: any) => {
+    setTitulos(prev => [payload.new as Titulo, ...prev]);
+    setSuccess('¡Nuevo título agregado en tiempo real!');
+    setTimeout(() => setSuccess(''), 3000);
+  }, []);
+
+  const handleTituloUpdate = useCallback((payload: any) => {
+    setTitulos(prev => prev.map(titulo => 
+      titulo.id === payload.new.id ? payload.new as Titulo : titulo
+    ));
+  }, []);
+
+  const handleTituloDelete = useCallback((payload: any) => {
+    setTitulos(prev => prev.filter(titulo => titulo.id !== payload.old.id));
+  }, []);
+
+  const handleRealtimeChanges = useCallback((payload: any) => {
+    console.log('📡 Cambio detectado en títulos:', payload);
+    
+    // Actualizar la lista cuando hay cambios
+    if (payload.eventType === 'INSERT') {
+      handleTituloInsert(payload);
+    } else if (payload.eventType === 'UPDATE') {
+      handleTituloUpdate(payload);
+    } else if (payload.eventType === 'DELETE') {
+      handleTituloDelete(payload);
+    }
+  }, [handleTituloInsert, handleTituloUpdate, handleTituloDelete]);
 
   useEffect(() => {
     loadTitulos();
@@ -97,25 +132,7 @@ export default function AdminTitulos() {
           schema: 'public',
           table: 'titulos'
         },
-        (payload) => {
-          console.log('📡 Cambio detectado en títulos:', payload);
-          
-          // Actualizar la lista cuando hay cambios
-          if (payload.eventType === 'INSERT') {
-            // Nuevo título agregado
-            setTitulos(prev => [payload.new as Titulo, ...prev]);
-            setSuccess('¡Nuevo título agregado en tiempo real!');
-            setTimeout(() => setSuccess(''), 3000);
-          } else if (payload.eventType === 'UPDATE') {
-            // Título actualizado
-            setTitulos(prev => prev.map(titulo => 
-              titulo.id === payload.new.id ? payload.new as Titulo : titulo
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            // Título eliminado
-            setTitulos(prev => prev.filter(titulo => titulo.id !== payload.old.id));
-          }
-        }
+        handleRealtimeChanges
       )
       .subscribe();
 
@@ -123,7 +140,8 @@ export default function AdminTitulos() {
       clearInterval(checkConnection);
       subscription.unsubscribe();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleRealtimeChanges]);
 
   // Verificar conectividad con Supabase
   const testConnection = useCallback(async () => {
@@ -153,12 +171,14 @@ export default function AdminTitulos() {
       
       try {
         const { data, error } = await query.order('created_at', { ascending: false });
-        if (error && error.message.includes('created_at')) {
+        if (error?.message?.includes('created_at')) {
           throw error;
         }
         setTitulos(data || []);
       } catch (orderError) {
         console.log('🔄 Reintentando sin ordenamiento específico...');
+        console.warn('Error al ordenar por created_at:', orderError);
+        
         const { data, error } = await supabase.from('titulos').select('*');
         
         if (error) {
@@ -249,14 +269,54 @@ export default function AdminTitulos() {
     }
   };
 
+  const saveEditedTitulo = async () => {
+    if (!editingTitulo) return;
+
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('titulos')
+        .update({
+          titulo: editingTitulo.titulo,
+          descripcion: editingTitulo.descripcion,
+          tipo: editingTitulo.tipo,
+          categoria: editingTitulo.categoria,
+          año: editingTitulo.año,
+          duracion: editingTitulo.duracion,
+          director: editingTitulo.director,
+          actores: editingTitulo.actores,
+          genero: editingTitulo.genero,
+          edad_minima: editingTitulo.edad_minima,
+          visible: editingTitulo.visible
+        })
+        .eq('id', editingTitulo.id);
+
+      if (error) throw error;
+
+      // Actualizar la lista local
+      setTitulos(titulos.map(t => 
+        t.id === editingTitulo.id ? editingTitulo : t
+      ));
+
+      setSuccess('Título actualizado exitosamente');
+      setShowEditModal(false);
+      setEditingTitulo(null);
+    } catch (error) {
+      console.error('Error updating title:', error);
+      setError('Error al actualizar el título');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filteredTitulos = useMemo(() => {
     return titulos.filter(titulo => {
       const matchesSearch = titulo.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            titulo.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            titulo.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (titulo.director && titulo.director.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           (titulo.actores && titulo.actores.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           (titulo.genero && titulo.genero.toLowerCase().includes(searchTerm.toLowerCase()));
+                           titulo.director?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           titulo.actores?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           titulo.genero?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesType = filterType === 'all' || titulo.tipo === filterType;
       const matchesVisible = filterVisible === 'all' || 
@@ -546,11 +606,11 @@ export default function AdminTitulos() {
           </div>
           
           <Button 
-            onClick={() => router.push('/admin/titulos/nuevo')}
+            onClick={() => router.push('/admin/upload')}
             className="flex items-center space-x-2 bg-red-600 hover:bg-red-700"
           >
             <Plus className="w-4 h-4" />
-            <span>Agregar Título</span>
+            <span>Subir Contenido</span>
           </Button>
         </div>
 
@@ -639,6 +699,7 @@ export default function AdminTitulos() {
                         setShowPreviewModal(true);
                       }}
                       className="bg-black/50 hover:bg-black/70 text-white"
+                      title="Vista previa"
                     >
                       <Play className="w-4 h-4" />
                     </Button>
@@ -646,8 +707,12 @@ export default function AdminTitulos() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/admin/titulos/${titulo.id}/editar`)}
+                    onClick={() => {
+                      setEditingTitulo({ ...titulo });
+                      setShowEditModal(true);
+                    }}
                     className="bg-black/50 hover:bg-black/70 text-white"
+                    title="Edición rápida"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -731,7 +796,10 @@ export default function AdminTitulos() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => router.push(`/admin/titulos/${titulo.id}/editar`)}
+                    onClick={() => {
+                      setEditingTitulo({ ...titulo });
+                      setShowEditModal(true);
+                    }}
                     className="text-blue-400 hover:text-blue-300"
                     title="Editar título"
                   >
@@ -785,11 +853,11 @@ export default function AdminTitulos() {
             </p>
             {titulos.length === 0 ? (
               <Button 
-                onClick={() => router.push('/admin/titulos/nuevo')}
+                onClick={() => router.push('/admin/upload')}
                 className="bg-red-600 hover:bg-red-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Agregar Primer Título
+                Subir Primer Contenido
               </Button>
             ) : (
               <Button 
@@ -918,6 +986,254 @@ export default function AdminTitulos() {
                 <Edit className="w-4 h-4 mr-2" />
                 Editar
               </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal de edición rápida */}
+      {showEditModal && editingTitulo && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingTitulo(null);
+          }}
+          title={`Editar: ${editingTitulo.titulo}`}
+          size="xl"
+        >
+          <div className="flex flex-col h-full">
+            {/* Contenido scrolleable */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-6">
+                {/* Información básica */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="edit-titulo" className="block text-sm font-medium text-gray-300 mb-2">
+                        Título *
+                      </label>
+                      <Input
+                        id="edit-titulo"
+                        value={editingTitulo.titulo}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          titulo: e.target.value
+                        })}
+                        placeholder="Nombre del título"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-tipo" className="block text-sm font-medium text-gray-300 mb-2">
+                        Tipo
+                      </label>
+                      <select
+                        id="edit-tipo"
+                        value={editingTitulo.tipo}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          tipo: e.target.value as 'pelicula' | 'serie' | 'documental' | 'trailer'
+                        })}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <option value="pelicula">Película</option>
+                        <option value="serie">Serie</option>
+                        <option value="documental">Documental</option>
+                        <option value="trailer">Trailer</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-categoria" className="block text-sm font-medium text-gray-300 mb-2">
+                        Categoría
+                      </label>
+                      <Input
+                        id="edit-categoria"
+                        value={editingTitulo.categoria}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          categoria: e.target.value
+                        })}
+                        placeholder="Ej: Acción, Drama, Comedia"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="edit-año" className="block text-sm font-medium text-gray-300 mb-2">
+                          Año
+                        </label>
+                        <Input
+                          id="edit-año"
+                          type="number"
+                          value={editingTitulo.año || ''}
+                          onChange={(e) => setEditingTitulo({
+                            ...editingTitulo,
+                            año: parseInt(e.target.value) || undefined
+                          })}
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="edit-edad-minima" className="block text-sm font-medium text-gray-300 mb-2">
+                          Edad Mínima
+                        </label>
+                        <Input
+                          id="edit-edad-minima"
+                          type="number"
+                          min="0"
+                          max="18"
+                          value={editingTitulo.edad_minima}
+                          onChange={(e) => setEditingTitulo({
+                            ...editingTitulo,
+                            edad_minima: parseInt(e.target.value) || 0
+                          })}
+                          className="bg-gray-700 border-gray-600 text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-visible"
+                        checked={editingTitulo.visible}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          visible: e.target.checked
+                        })}
+                        className="w-4 h-4 text-red-600 bg-gray-700 border-gray-600 rounded focus:ring-red-500"
+                      />
+                      <label htmlFor="edit-visible" className="text-sm text-gray-300">
+                        Visible para los usuarios
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Información adicional */}
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="edit-descripcion" className="block text-sm font-medium text-gray-300 mb-2">
+                        Descripción
+                      </label>
+                      <textarea
+                        id="edit-descripcion"
+                        value={editingTitulo.descripcion}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          descripcion: e.target.value
+                        })}
+                        placeholder="Descripción del contenido..."
+                        rows={4}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-director" className="block text-sm font-medium text-gray-300 mb-2">
+                        Director
+                      </label>
+                      <Input
+                        id="edit-director"
+                        value={editingTitulo.director || ''}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          director: e.target.value
+                        })}
+                        placeholder="Nombre del director"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-duracion" className="block text-sm font-medium text-gray-300 mb-2">
+                        Duración
+                      </label>
+                      <Input
+                        id="edit-duracion"
+                        value={editingTitulo.duracion || ''}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          duracion: e.target.value
+                        })}
+                        placeholder="Ej: 120 min"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-genero" className="block text-sm font-medium text-gray-300 mb-2">
+                        Género
+                      </label>
+                      <Input
+                        id="edit-genero"
+                        value={editingTitulo.genero || ''}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          genero: e.target.value
+                        })}
+                        placeholder="Ej: Acción, Suspenso"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="edit-actores" className="block text-sm font-medium text-gray-300 mb-2">
+                        Actores
+                      </label>
+                      <Input
+                        id="edit-actores"
+                        value={editingTitulo.actores || ''}
+                        onChange={(e) => setEditingTitulo({
+                          ...editingTitulo,
+                          actores: e.target.value
+                        })}
+                        placeholder="Actores principales (separados por comas)"
+                        className="bg-gray-700 border-gray-600 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones fijos en la parte inferior */}
+            <div className="flex-shrink-0 border-t border-gray-700 bg-gray-900 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingTitulo(null);
+                  }}
+                  disabled={saving}
+                  className="border-gray-600 text-gray-300 hover:bg-gray-700 w-full sm:w-auto"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancelar
+                </Button>
+                
+                <Button
+                  onClick={saveEditedTitulo}
+                  disabled={saving || !editingTitulo.titulo.trim()}
+                  className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 shadow-lg w-full sm:w-auto"
+                >
+                  {saving ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Guardar Cambios
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </Modal>

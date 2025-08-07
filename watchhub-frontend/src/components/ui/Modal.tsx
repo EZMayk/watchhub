@@ -45,22 +45,22 @@ const Modal: React.FC<ModalProps> = ({
   const getSizeClasses = () => {
     switch (size) {
       case 'sm':
-        return 'max-w-md'
+        return 'max-w-md w-full mx-4'
       case 'lg':
-        return 'max-w-2xl'
+        return 'max-w-2xl w-full mx-4'
       case 'xl':
-        return 'max-w-4xl'
+        return 'max-w-4xl w-full mx-4'
       case 'full':
-        return 'max-w-[95vw] max-h-[95vh]'
+        return 'max-w-[95vw] w-full mx-4 max-h-[95vh]'
       default:
-        return 'max-w-lg'
+        return 'max-w-lg w-full mx-4'
     }
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
       {/* Overlay */}
       {closeOnOverlayClick ? (
         <button
@@ -75,9 +75,9 @@ const Modal: React.FC<ModalProps> = ({
       {/* Modal Content */}
       <dialog
         className={cn(
-          'relative bg-gray-900 rounded-lg shadow-xl border border-gray-700 w-full overflow-hidden',
+          'relative bg-gray-900 rounded-lg shadow-xl border border-gray-700 flex flex-col',
           getSizeClasses(),
-          size === 'full' ? 'h-full' : 'max-h-[90vh]',
+          size === 'full' ? 'h-full' : 'max-h-[95vh] sm:max-h-[90vh]',
           className
         )}
         aria-labelledby={title ? "modal-title" : undefined}
@@ -85,14 +85,14 @@ const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-700">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700 flex-shrink-0">
             {title && (
-              <h2 id="modal-title" className="text-xl font-semibold text-white">{title}</h2>
+              <h2 id="modal-title" className="text-lg sm:text-xl font-semibold text-white truncate pr-4">{title}</h2>
             )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800"
+                className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 flex-shrink-0"
                 aria-label="Cerrar modal"
               >
                 <X className="h-5 w-5" />
@@ -102,7 +102,7 @@ const Modal: React.FC<ModalProps> = ({
         )}
         
         {/* Content */}
-        <div className="overflow-y-auto max-h-full">
+        <div className="overflow-y-auto flex-1 p-4 sm:p-6">
           {children}
         </div>
       </dialog>

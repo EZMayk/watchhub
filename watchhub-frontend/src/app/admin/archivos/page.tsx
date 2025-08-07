@@ -7,13 +7,10 @@ import {
   Folder, 
   FileVideo, 
   Image as ImageIcon,
-  Download,
   Trash2,
   Search,
-  Filter,
   Eye,
   Copy,
-  MoreHorizontal,
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
@@ -32,20 +29,21 @@ interface FileWithUrl extends StorageFile {
   publicUrl: string;
   type: 'video' | 'image';
   sizeFormatted: string;
+  folder: string; // Agregar carpeta de origen
 }
 
 export default function ArchivosPage() {
   const [files, setFiles] = useState<FileWithUrl[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBucket, setSelectedBucket] = useState<'all' | 'videos' | 'imagenes'>('all');
+  const [selectedBucket, setSelectedBucket] = useState<'all' | 'videos' | 'posters'>('all');
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+  const formatFileSize = (bytes: number | undefined): string => {
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -56,63 +54,96 @@ export default function ArchivosPage() {
     
     try {
       const allFiles: FileWithUrl[] = [];
-      const bucketsToFetch = selectedBucket === 'all' ? ['videos', 'imagenes'] : [selectedBucket];
+      const foldersToFetch = selectedBucket === 'all' ? ['videos', 'posters'] : [selectedBucket];
       
-      for (const bucket of bucketsToFetch) {
-        const { data: bucketFiles, error: bucketError } = await supabase.storage
-          .from(bucket)
-          .list('', {
-            limit: 100,
+      console.log('🔄 Cargando archivos de carpetas:', foldersToFetch);
+      
+      for (const folder of foldersToFetch) {
+        console.log(`📂 Obteniendo archivos de la carpeta: media/${folder}`);
+        
+        const { data: folderFiles, error: folderError } = await supabase.storage
+          .from('media')
+          .list(folder, {
+            limit: 1000, // Aumentar límite
             offset: 0,
             sortBy: { column: 'created_at', order: 'desc' }
           });
 
-        if (bucketError) {
-          console.error(`Error fetching ${bucket}:`, bucketError);
+        if (folderError) {
+          console.error(`❌ Error fetching media/${folder}:`, folderError);
+          // Continuar con otras carpetas pero mostrar el error
+          setError(`Error al cargar archivos de media/${folder}: ${folderError.message}`);
           continue;
         }
 
-        if (bucketFiles) {
-          const filesWithUrls = bucketFiles.map(file => {
-            const { data: { publicUrl } } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(file.name);
+        if (folderFiles && folderFiles.length > 0) {
+          console.log(`✅ Encontrados ${folderFiles.length} archivos en media/${folder}`);
+          
+          const filesWithUrls = folderFiles
+            .filter(file => {
+              // Filtrar archivos que no sean carpetas (archivos sin extensión o con nombre extraño)
+              return file.name && 
+                     !file.name.endsWith('/') && 
+                     file.name !== '.emptyFolderPlaceholder' &&
+                     file.metadata;
+            })
+            .map(file => {
+              const { data: { publicUrl } } = supabase.storage
+                .from('media')
+                .getPublicUrl(`${folder}/${file.name}`);
 
-            return {
-              ...file,
-              publicUrl,
-              type: bucket === 'videos' ? 'video' as const : 'image' as const,
-              sizeFormatted: formatFileSize(file.metadata?.size || 0)
-            };
-          });
+              return {
+                ...file,
+                publicUrl,
+                type: folder === 'videos' ? 'video' as const : 'image' as const,
+                sizeFormatted: formatFileSize(file.metadata?.size || 0),
+                folder: folder // Agregar información de la carpeta
+              };
+            });
 
           allFiles.push(...filesWithUrls);
+          console.log(`📊 Procesados ${filesWithUrls.length} archivos válidos de media/${folder}`);
+        } else {
+          console.log(`📭 No se encontraron archivos en media/${folder}`);
         }
       }
 
+      console.log(`🎯 Total de archivos cargados: ${allFiles.length}`);
       setFiles(allFiles);
+      
     } catch (err) {
-      console.error('Error fetching files:', err);
-      setError('Error al cargar los archivos');
+      console.error('💥 Error general fetching files:', err);
+      setError(`Error al cargar los archivos: ${err instanceof Error ? err.message : 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Cargar archivos inmediatamente al montar el componente
     fetchFiles();
   }, [selectedBucket]);
 
-  const handleDeleteFile = async (fileName: string, fileType: 'video' | 'image') => {
+  // Efecto para recargar periódicamente (opcional)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Recargar cada 5 minutos para mantener datos actualizados
+      fetchFiles();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [selectedBucket]);
+
+  const handleDeleteFile = async (fileName: string, fileType: 'video' | 'image', folder: string) => {
     if (!confirm(`¿Estás seguro de que quieres eliminar ${fileName}?`)) {
       return;
     }
 
     try {
-      const bucket = fileType === 'video' ? 'videos' : 'imagenes';
+      const filePath = `${folder}/${fileName}`;
       const { error } = await supabase.storage
-        .from(bucket)
-        .remove([fileName]);
+        .from('media')
+        .remove([filePath]);
 
       if (error) throw error;
 
@@ -137,8 +168,8 @@ export default function ArchivosPage() {
       for (const fileName of selectedFiles) {
         const file = files.find(f => f.name === fileName);
         if (file) {
-          const bucket = file.type === 'video' ? 'videos' : 'imagenes';
-          await supabase.storage.from(bucket).remove([fileName]);
+          const filePath = `${file.folder}/${fileName}`;
+          await supabase.storage.from('media').remove([filePath]);
         }
       }
 
@@ -152,9 +183,24 @@ export default function ArchivosPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // Aquí podrías mostrar una notificación de éxito
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Mostrar notificación de éxito temporal
+      const button = document.activeElement as HTMLButtonElement;
+      if (button) {
+        const originalTitle = button.title;
+        button.title = '¡Copiado!';
+        button.style.color = '#10b981'; // green-500
+        setTimeout(() => {
+          button.title = originalTitle || 'Copiar URL';
+          button.style.color = '';
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Error al copiar:', err);
+      alert('Error al copiar la URL');
+    }
   };
 
   const filteredFiles = files.filter(file =>
@@ -235,12 +281,12 @@ export default function ArchivosPage() {
               {/* Filtro por tipo */}
               <select
                 value={selectedBucket}
-                onChange={(e) => setSelectedBucket(e.target.value as 'all' | 'videos' | 'imagenes')}
+                onChange={(e) => setSelectedBucket(e.target.value as 'all' | 'videos' | 'posters')}
                 className="bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2"
               >
                 <option value="all">Todos los archivos</option>
                 <option value="videos">Solo videos</option>
-                <option value="imagenes">Solo imágenes</option>
+                <option value="posters">Solo pósters</option>
               </select>
             </div>
 
@@ -287,10 +333,28 @@ export default function ArchivosPage() {
             {filteredFiles.length === 0 ? (
               <div className="p-12 text-center">
                 <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-400 mb-2">No hay archivos</h3>
-                <p className="text-gray-500">
-                  {searchTerm ? 'No se encontraron archivos con ese nombre' : 'Sube algunos archivos para comenzar'}
+                <h3 className="text-lg font-semibold text-gray-400 mb-2">
+                  {files.length === 0 ? 'No hay archivos almacenados' : 'No se encontraron archivos'}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {(() => {
+                    if (searchTerm) {
+                      return `No se encontraron archivos que coincidan con "${searchTerm}"`;
+                    }
+                    if (files.length === 0) {
+                      return 'Los archivos aparecerán aquí cuando subas contenido desde la sección "Subir Contenido"';
+                    }
+                    return 'Intenta cambiar los filtros de búsqueda';
+                  })()}
                 </p>
+                {files.length === 0 && (
+                  <div className="text-sm text-gray-400 space-y-2">
+                    <p>💡 <strong>Para subir archivos:</strong></p>
+                    <p>1. Ve a "Subir Contenido" en el menú lateral</p>
+                    <p>2. Sube videos e imágenes</p>
+                    <p>3. Los archivos aparecerán automáticamente aquí</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -312,6 +376,7 @@ export default function ArchivosPage() {
                         />
                       </th>
                       <th className="px-4 py-3 text-left text-white font-medium">Archivo</th>
+                      <th className="px-4 py-3 text-left text-white font-medium">Carpeta</th>
                       <th className="px-4 py-3 text-left text-white font-medium">Tipo</th>
                       <th className="px-4 py-3 text-left text-white font-medium">Tamaño</th>
                       <th className="px-4 py-3 text-left text-white font-medium">Fecha</th>
@@ -346,11 +411,20 @@ export default function ArchivosPage() {
                               <p className="text-white font-medium truncate max-w-xs" title={file.name}>
                                 {file.name}
                               </p>
-                              <p className="text-xs text-gray-400 truncate max-w-xs" title={file.publicUrl}>
-                                {file.publicUrl}
+                              <p className="text-xs text-gray-400">
+                                Creado: {new Date(file.created_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            file.folder === 'videos' 
+                              ? 'bg-purple-900 text-purple-300'
+                              : 'bg-orange-900 text-orange-300'
+                          }`}>
+                            media/{file.folder}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -358,12 +432,21 @@ export default function ArchivosPage() {
                               ? 'bg-blue-900 text-blue-300'
                               : 'bg-green-900 text-green-300'
                           }`}>
-                            {file.type === 'video' ? 'Video' : 'Imagen'}
+                            {file.type === 'video' ? 'Video' : 'Póster'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-300">{file.sizeFormatted}</td>
                         <td className="px-4 py-3 text-gray-300">
-                          {new Date(file.created_at).toLocaleDateString()}
+                          {file.created_at 
+                            ? new Date(file.created_at).toLocaleString('es-ES', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'Fecha desconocida'
+                          }
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center space-x-2">
@@ -372,6 +455,7 @@ export default function ArchivosPage() {
                               size="sm"
                               onClick={() => window.open(file.publicUrl, '_blank')}
                               className="text-gray-400 hover:text-white"
+                              title="Ver archivo"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -380,14 +464,16 @@ export default function ArchivosPage() {
                               size="sm"
                               onClick={() => copyToClipboard(file.publicUrl)}
                               className="text-gray-400 hover:text-white"
+                              title="Copiar URL"
                             >
                               <Copy className="w-4 h-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteFile(file.name, file.type)}
+                              onClick={() => handleDeleteFile(file.name, file.type, file.folder)}
                               className="text-gray-400 hover:text-red-400"
+                              title="Eliminar archivo"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
