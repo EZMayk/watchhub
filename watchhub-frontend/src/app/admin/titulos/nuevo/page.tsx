@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminLayout from '@/components/AdminLayout';
+import { AdminLayout } from '@/components/admin';
 import { supabase } from '@/lib/supabase';
 import { 
   Save, 
