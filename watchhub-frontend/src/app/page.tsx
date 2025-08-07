@@ -2,10 +2,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Play, ArrowRight, Film, Users, Crown, AlertCircle } from 'lucide-react'
+import { Play, ArrowRight, Film, Users, Crown, AlertCircle, Wrench } from 'lucide-react'
 import { Button, Card, CardContent, LoadingSpinner, Alert } from '@/components/ui'
 import TrailerCard from '@/components/TrailerCard'
 import LandingNavbar from '@/components/LandingNavbar'
+import { useAppSettings } from '@/hooks/useAppSettings'
 
 // Definir el tipo para los trailers basado en la estructura de la base de datos
 interface Trailer {
@@ -27,6 +28,14 @@ export default function HomePage() {
   const [trailers, setTrailers] = useState<Trailer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  // Obtener configuración dinámica
+  const { settings, loading: settingsLoading, error: settingsError } = useAppSettings()
+
+  // Actualizar título de la página cuando cambie la configuración
+  useEffect(() => {
+    document.title = `${settings.site_name} - Streaming de Películas y Series`
+  }, [settings.site_name])
 
   const fetchTrailers = useCallback(async () => {
     try {
@@ -78,9 +87,56 @@ export default function HomePage() {
     fetchTrailers()
   }, [fetchTrailers])
 
+  // Si el modo mantenimiento está activo, mostrar página de mantenimiento
+  if (settings.maintenance_mode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center p-8">
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-yellow-600/20 rounded-full backdrop-blur-sm">
+              <Wrench className="h-16 w-16 text-yellow-500" />
+            </div>
+          </div>
+          
+          <h1 className="text-4xl font-bold text-white mb-4">
+            {settings.site_name}
+          </h1>
+          
+          <h2 className="text-2xl font-semibold text-yellow-400 mb-4">
+            Sitio en Mantenimiento
+          </h2>
+          
+          <p className="text-gray-300 mb-6 leading-relaxed">
+            Estamos realizando mejoras para ofrecerte una mejor experiencia. 
+            Volveremos pronto con nuevas funcionalidades.
+          </p>
+          
+          <div className="animate-pulse">
+            <div className="h-2 bg-yellow-600 rounded-full mb-2"></div>
+            <p className="text-sm text-gray-400">Trabajando en las mejoras...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <LandingNavbar />
+      
+      {/* Notificación de error de configuración */}
+      {settingsError && (
+        <div className="bg-yellow-900/90 border-b border-yellow-700 p-3">
+          <div className="container mx-auto">
+            <Alert
+              variant="warning"
+              title="Configuración no disponible"
+              description="Se está usando la configuración por defecto. Algunas funciones pueden estar limitadas."
+              className="border-yellow-600 bg-yellow-900/50"
+            />
+          </div>
+        </div>
+      )}
       
       {/* Hero Section Mejorado */}
       <header className="hero-section relative overflow-hidden" aria-labelledby="main-heading">
@@ -95,25 +151,37 @@ export default function HomePage() {
             </div>
             
             <h1 id="main-heading" className="text-5xl md:text-7xl font-bold mb-6 text-gradient">
-              WatchHub
+              {settings.site_name}
             </h1>
             
             <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-              La mejor plataforma de streaming para toda la familia. 
-              Películas, series y documentales en un solo lugar.
+              {settings.site_description}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/register">
-                <Button
-                  size="xl"
-                  variant="gradient"
-                  icon={<Crown className="h-5 w-5" />}
-                  className="min-w-[200px] hover-lift"
-                >
-                  Comenzar Gratis
-                </Button>
-              </Link>
+              {settings.registration_enabled ? (
+                <Link href="/auth/register">
+                  <Button
+                    size="xl"
+                    variant="gradient"
+                    icon={<Crown className="h-5 w-5" />}
+                    className="min-w-[200px] hover-lift"
+                  >
+                    Comenzar Gratis
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/auth/login">
+                  <Button
+                    size="xl"
+                    variant="gradient"
+                    icon={<Crown className="h-5 w-5" />}
+                    className="min-w-[200px] hover-lift"
+                  >
+                    Iniciar Sesión
+                  </Button>
+                </Link>
+              )}
               
               <Button
                 size="xl"
@@ -152,6 +220,7 @@ export default function HomePage() {
                 </h3>
                 <p className="text-gray-400 leading-relaxed">
                   Accede a miles de películas, series y documentales exclusivos de la mejor calidad.
+                  {settings.content_moderation && " Todo nuestro contenido es revisado y moderado."}
                 </p>
               </CardContent>
             </Card>
@@ -268,26 +337,42 @@ export default function HomePage() {
                 Únete a millones de usuarios que ya disfrutan de la mejor experiencia de streaming
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/auth/register">
-                  <Button
-                    size="xl"
-                    variant="gradient"
-                    icon={<ArrowRight className="h-5 w-5" />}
-                    iconPosition="right"
-                    className="min-w-[200px] hover-lift"
-                  >
-                    Comenzar Ahora
-                  </Button>
-                </Link>
-                <Link href="/auth/login">
-                  <Button
-                    size="xl"
-                    variant="outline"
-                    className="min-w-[200px] hover-lift"
-                  >
-                    Ya tengo cuenta
-                  </Button>
-                </Link>
+                {settings.registration_enabled ? (
+                  <>
+                    <Link href="/auth/register">
+                      <Button
+                        size="xl"
+                        variant="gradient"
+                        icon={<ArrowRight className="h-5 w-5" />}
+                        iconPosition="right"
+                        className="min-w-[200px] hover-lift"
+                      >
+                        Comenzar Ahora
+                      </Button>
+                    </Link>
+                    <Link href="/auth/login">
+                      <Button
+                        size="xl"
+                        variant="outline"
+                        className="min-w-[200px] hover-lift"
+                      >
+                        Ya tengo cuenta
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/auth/login">
+                    <Button
+                      size="xl"
+                      variant="gradient"
+                      icon={<ArrowRight className="h-5 w-5" />}
+                      iconPosition="right"
+                      className="min-w-[200px] hover-lift"
+                    >
+                      Iniciar Sesión
+                    </Button>
+                  </Link>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -301,10 +386,10 @@ export default function HomePage() {
             <div className="animate-fadeInUp">
               <div className="flex items-center space-x-2 mb-4 hover-lift">
                 <Film className="h-8 w-8 text-red-500" aria-hidden="true" />
-                <span className="text-2xl font-bold text-white text-gradient">WatchHub</span>
+                <span className="text-2xl font-bold text-white text-gradient">{settings.site_name}</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
-                La plataforma de streaming que conecta a las familias con el mejor entretenimiento.
+                {settings.site_description}
               </p>
             </div>
             
@@ -341,7 +426,7 @@ export default function HomePage() {
           
           <div className="border-t border-gray-800 pt-8 text-center">
             <p className="text-gray-400 text-sm">
-              &copy; 2025 WatchHub. Todos los derechos reservados. | Hecho con ❤️ para los amantes del cine
+              &copy; 2025 {settings.site_name}. Todos los derechos reservados. | Hecho con ❤️ para los amantes del cine
             </p>
           </div>
         </div>

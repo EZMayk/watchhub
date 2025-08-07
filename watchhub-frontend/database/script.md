@@ -1,4 +1,91 @@
--- Tabla: cuentas (sincronizada con auth.users)
+# Script de Base de Datos para WatchHub
+
+## 📋 Descripción
+Este script crea todas las tablas, funciones y políticas de seguridad necesarias para la aplicación WatchHub.
+
+## 🚀 Instrucciones de Instalación
+
+### 1. Acceder a Supabase
+1. Ve a [supabase.com](https://supabase.com)
+2. Accede a tu proyecto
+3. Ve a la sección **SQL Editor**
+
+### 2. Ejecutar el Script
+1. Copia todo el contenido de `script.sql`
+2. Pégalo en el editor SQL de Supabase
+3. Ejecuta el script completo
+
+### 3. Verificar la Instalación
+Después de ejecutar el script, verifica que se hayan creado las siguientes tablas:
+- ✅ `cuentas` - Información de usuarios
+- ✅ `suscripciones` - Planes de suscripción
+- ✅ `perfiles` - Perfiles de usuario
+- ✅ `titulos` - Contenido multimedia
+- ✅ `favoritos` - Títulos favoritos
+- ✅ `visualizaciones` - Historial de visualizaciones
+- ✅ `comentarios` - Comentarios de usuarios
+- ✅ `calificaciones` - Sistema de calificaciones
+- ✅ `notificaciones` - Sistema de notificaciones
+- ✅ `app_settings` - **NUEVA** Configuración de la aplicación
+
+## 🔧 Funciones Incluidas
+- `get_user_count()` - Obtener conteo de usuarios
+- `is_admin()` - Verificar si un usuario es administrador
+- `update_updated_at_column()` - Actualizar timestamp automáticamente
+
+## 🛡️ Políticas de Seguridad (RLS)
+El script incluye políticas de **Row Level Security** para:
+- Acceso seguro a perfiles propios
+- Protección de datos administrativos
+- Control de acceso a configuraciones
+
+## ⚠️ Importante para Admins
+Para acceder al panel de administración, asegúrate de que tu usuario tenga:
+1. Un registro en la tabla `cuentas`
+2. El campo `rol` establecido como `'admin'`
+
+### Crear Usuario Admin
+```sql
+-- Actualizar tu usuario para ser admin (reemplaza con tu email)
+UPDATE cuentas 
+SET rol = 'admin' 
+WHERE correo = 'tu-email@gmail.com';
+```
+
+## 🆕 Nuevas Características (v2.0)
+- **Configuración de Aplicación**: Panel de configuración para admins
+- **Gestión de Usuarios**: CRUD completo de usuarios
+- **Sistema de Notificaciones**: Notificaciones internas
+- **Mejores Políticas de Seguridad**: RLS más robusto
+
+## 🔍 Troubleshooting
+
+### Error: "relation does not exist"
+Si ves errores sobre tablas que no existen:
+1. Asegúrate de ejecutar el script completo
+2. Verifica que no haya errores en la ejecución
+3. Revisa que todas las tablas se hayan creado
+
+### Error: "permission denied"
+Si tienes problemas de permisos:
+1. Verifica que tu usuario tenga rol `admin`
+2. Asegúrate de que RLS esté configurado correctamente
+3. Revisa las políticas de seguridad
+
+### Configuración no funciona
+Si la página de configuración no carga:
+1. Verifica que la tabla `app_settings` exista
+2. Asegúrate de que hay un registro por defecto
+3. Revisa que tu usuario sea admin
+
+## 📞 Soporte
+Si encuentras problemas:
+1. Revisa los logs en Supabase Dashboard
+2. Verifica la configuración de RLS
+3. Asegúrate de que el script se ejecutó completamente
+
+---
+
 CREATE TABLE cuentas (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nombre TEXT NOT NULL,

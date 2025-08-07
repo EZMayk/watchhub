@@ -263,3 +263,24 @@ BEGIN
   RETURN COALESCE(user_role = 'admin', false);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Tabla: app_settings (configuración de la aplicación)
+CREATE TABLE app_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_name TEXT DEFAULT 'WatchHub',
+  site_description TEXT DEFAULT 'Plataforma de streaming de contenido audiovisual',
+  site_logo TEXT,
+  maintenance_mode BOOLEAN DEFAULT FALSE,
+  registration_enabled BOOLEAN DEFAULT TRUE,
+  max_upload_size INTEGER DEFAULT 500, -- MB
+  allowed_file_types TEXT[] DEFAULT ARRAY['mp4', 'avi', 'mkv', 'mov'],
+  smtp_host TEXT,
+  smtp_port INTEGER,
+  smtp_user TEXT,
+  smtp_password TEXT,
+  default_user_role TEXT DEFAULT 'usuario',
+  content_moderation BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
