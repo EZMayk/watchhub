@@ -25,34 +25,6 @@ interface Trailer {
 }
 
 export default function HomePage() {
-  // Estado para los videos destacados
-  const [featuredVideos, setFeaturedVideos] = useState<any[]>([])
-  const [loadingVideos, setLoadingVideos] = useState(true)
-  const [errorVideos, setErrorVideos] = useState('')
-
-  // Obtener videos de la tabla 'videos'
-  useEffect(() => {
-    let isMounted = true;
-    const fetchVideos = async () => {
-      try {
-        setErrorVideos('');
-        const { data, error } = await supabase
-          .from('videos')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        if (isMounted) setFeaturedVideos(data || []);
-      } catch (error) {
-        console.error('Error fetching videos:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Error al cargar los videos.';
-        if (isMounted) setErrorVideos(errorMessage);
-      } finally {
-        if (isMounted) setLoadingVideos(false);
-      }
-    };
-    fetchVideos();
-    return () => { isMounted = false; };
-  }, []);
   const [trailers, setTrailers] = useState<Trailer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -284,7 +256,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trailers Destacados - Ahora con videos de Supabase Storage */}
+      {/* Trailers Section Mejorado */}
       <section id="trailers" className="section-padding" aria-labelledby="trailers-title">
         <div className="container-responsive">
           <div className="text-center mb-12 animate-fadeInUp">
@@ -297,39 +269,55 @@ export default function HomePage() {
           </div>
 
           {/* Error Alert */}
-          {errorVideos && (
-            <Alert variant="error">{errorVideos}</Alert>
+          {error && (
+            <Alert
+              variant="error"
+              title="Error al cargar contenido"
+              description={error}
+              dismissible
+              onDismiss={() => setError('')}
+              className="mb-8"
+              icon={<AlertCircle className="h-4 w-4" />}
+            />
           )}
-          {loadingVideos ? (
+          
+          {/* Estados de carga y contenido */}
+          {loading && (
             <div className="flex flex-col items-center justify-center py-16">
               <LoadingSpinner 
                 size="lg" 
-                text="Cargando trailers destacados..." 
+                text="Cargando trailers increíbles..." 
                 className="mb-4 loading-shimmer"
               />
             </div>
-          ) : featuredVideos.length === 0 ? (
+          )}
+          
+          {!loading && trailers.length === 0 && (
             <Card variant="outline" className="text-center py-16 hover-lift">
               <CardContent>
                 <Film className="h-16 w-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">
-                  No hay trailers destacados
+                  No hay trailers disponibles
                 </h3>
                 <p className="text-gray-400 mb-6">
-                  No se encontraron videos en este momento. Inténtalo más tarde.
+                  No se encontraron trailers en este momento. Inténtalo más tarde.
                 </p>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRetry}
+                  className="hover-lift"
+                >
+                  Reintentar
+                </Button>
               </CardContent>
             </Card>
-          ) : (
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {featuredVideos.map(video => (
-                <div key={video.id} className="bg-gray-800 rounded-xl shadow-lg p-4 animate-fadeInUp">
-                  <h3 className="text-xl font-semibold mb-2 text-white">{video.title || 'Video sin título'}</h3>
-                  <video controls className="w-full rounded-lg border border-gray-700" poster={video.poster_url || undefined}>
-                    <source src={video.url} type="video/mp4" />
-                    Tu navegador no soporta el video.
-                  </video>
-                  {video.description && <p className="mt-2 text-gray-300 text-sm">{video.description}</p>}
+          )}
+          
+          {!loading && trailers.length > 0 && (
+            <div className="grid-responsive">
+              {trailers.map((trailer) => (
+                <div key={trailer.id} className="hover-lift">
+                  <TrailerCard titulo={trailer} />
                 </div>
               ))}
             </div>
