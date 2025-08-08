@@ -98,16 +98,7 @@ CREATE TABLE public.planes (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT planes_pkey PRIMARY KEY (id)
 );
-CREATE TABLE public.reseñas (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  perfil_id uuid,
-  titulo_id uuid,
-  calificacion integer CHECK (calificacion >= 1 AND calificacion <= 5),
-  comentario text,
-  creada_en timestamp without time zone DEFAULT now(),
-  CONSTRAINT reseñas_pkey PRIMARY KEY (id),
-  CONSTRAINT reseñas_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
-);
+
 CREATE TABLE public.suscripciones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   cuenta_id uuid,
