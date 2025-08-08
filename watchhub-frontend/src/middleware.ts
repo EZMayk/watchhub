@@ -33,13 +33,13 @@ export async function middleware(req: NextRequest) {
       }
 
       // Verificar si el usuario es admin (los admins no necesitan suscripción)
-      const { data: adminProfile } = await supabase
-        .from('perfiles')
-        .select('es_admin')
+      const { data: userAccount } = await supabase
+        .from('cuentas')
+        .select('rol')
         .eq('id', user.id)
         .single()
 
-      if (adminProfile?.es_admin) {
+      if (userAccount?.rol === 'admin') {
         return res
       }
 

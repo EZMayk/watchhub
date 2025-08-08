@@ -34,13 +34,14 @@ export function useSubscriptionCheck(): SubscriptionStatus {
       }
 
       // Verificar si es admin
-      const { data: profile } = await supabase
-        .from('perfiles')
-        .select('es_admin')
+
+      const { data: userAccount } = await supabase
+        .from('cuentas')
+        .select('rol')
         .eq('id', user.id)
         .single()
 
-      const isAdmin = profile?.es_admin || false
+      const isAdmin = userAccount?.rol === 'admin'
 
       if (isAdmin) {
         setStatus({

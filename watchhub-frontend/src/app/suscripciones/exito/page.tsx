@@ -34,6 +34,16 @@ function ExitoContent() {
     verifyPayment(sessionId)
   }, [searchParams])
 
+  // Redirección automática al dashboard tras pago exitoso
+  useEffect(() => {
+    if (subscription && !loading && !error) {
+      const timeout = setTimeout(() => {
+        router.push('/pages/dashboard-user')
+      }, 30000) // 30 segundos para que el usuario vea el mensaje
+      return () => clearTimeout(timeout)
+    }
+  }, [subscription, loading, error, router])
+
   const verifyPayment = async (sessionId: string) => {
     try {
       // Verificar el pago con Stripe
@@ -243,7 +253,7 @@ function ExitoContent() {
               {/* Beneficios */}
               <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-6 mb-8">
                 <h3 className="text-lg font-semibold text-blue-300 mb-4">
-                  Tu suscripción está lista, ¡solo falta registrarte!
+                  ¡Tu suscripción está activa!
                 </h3>
                 <div className="space-y-2 text-sm text-blue-200">
                   <div className="flex items-center space-x-2">
@@ -268,13 +278,12 @@ function ExitoContent() {
               {/* Botones de acción */}
               <div className="space-y-4">
                 <Button
-                  onClick={() => router.push('/auth/register?subscription=paid')}
+                  onClick={() => router.push('/pages/dashboard-user')}
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3"
                 >
                   <Play className="w-5 h-5 mr-2" />
-                  Completar Registro
+                  Ir al Catálogo
                 </Button>
-                
                 <Button
                   variant="outline"
                   onClick={() => router.push('/')}
