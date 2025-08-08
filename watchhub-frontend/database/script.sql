@@ -45,10 +45,13 @@ CREATE TABLE public.favoritos (
 );
 CREATE TABLE public.historial_visualizacion (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  perfil_id uuid,
-  titulo_id uuid,
+  perfil_id uuid NOT NULL,
+  titulo_id uuid NOT NULL,
   visto_en timestamp without time zone DEFAULT now(),
+  progreso numeric DEFAULT 0,
+  updated_at timestamp without time zone DEFAULT now(),
   CONSTRAINT historial_visualizacion_pkey PRIMARY KEY (id),
+  CONSTRAINT historial_visualizacion_titulo_id_fkey FOREIGN KEY (titulo_id) REFERENCES public.titulos(id),
   CONSTRAINT historial_visualizacion_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
 );
 CREATE TABLE public.metodos_pago (
@@ -98,7 +101,16 @@ CREATE TABLE public.planes (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT planes_pkey PRIMARY KEY (id)
 );
-
+CREATE TABLE public.reseñas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  perfil_id uuid,
+  titulo_id uuid,
+  calificacion integer CHECK (calificacion >= 1 AND calificacion <= 5),
+  comentario text,
+  creada_en timestamp without time zone DEFAULT now(),
+  CONSTRAINT reseñas_pkey PRIMARY KEY (id),
+  CONSTRAINT reseñas_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
+);
 CREATE TABLE public.suscripciones (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   cuenta_id uuid,
@@ -129,5 +141,6 @@ CREATE TABLE public.titulos (
   visible boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  duracion_segundos integer,
   CONSTRAINT titulos_pkey PRIMARY KEY (id)
 );

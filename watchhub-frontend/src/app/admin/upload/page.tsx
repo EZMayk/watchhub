@@ -33,6 +33,7 @@ interface TituloForm {
   categoria: string;
   año: number;
   duracion: string;
+  duracion_segundos: number | null;
   director: string;
   actores: string;
   genero: string;
@@ -49,6 +50,7 @@ const defaultTitulo: TituloForm = {
   categoria: '',
   año: new Date().getFullYear(),
   duracion: '',
+  duracion_segundos: null,
   director: '',
   actores: '',
   genero: '',
@@ -484,6 +486,23 @@ export default function UploadPage() {
     }));
   };
 
+  // Extrae la duración de un video dado su URL (en segundos)
+  const getVideoDuration = (videoUrl: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.src = videoUrl;
+      video.onloadedmetadata = () => {
+        if (video.duration && !isNaN(video.duration)) {
+          resolve(video.duration);
+        } else {
+          reject(new Error('No se pudo obtener la duración del video.'));
+        }
+      };
+      video.onerror = () => reject(new Error('Error cargando el video para extraer duración.'));
+    });
+  };
+
   const saveTitulo = async () => {
     try {
       setIsSavingTitle(true);
@@ -504,6 +523,7 @@ export default function UploadPage() {
         categoria: tituloForm.categoria.trim() || null,
         año: tituloForm.año,
         duracion: tituloForm.duracion.trim() || null,
+        duracion_segundos: tituloForm.duracion_segundos ?? null,
         director: tituloForm.director.trim() || null,
         actores: tituloForm.actores.trim() || null,
         genero: tituloForm.genero.trim() || null,
@@ -602,9 +622,19 @@ export default function UploadPage() {
     }
   };
 
-  const selectUploadedFile = (url: string, type: 'video' | 'image') => {
+  // Cuando el usuario selecciona un archivo subido, si es video, extrae duración y la pone en el campo 'duracion' (en minutos redondeado)
+  const selectUploadedFile = async (url: string, type: 'video' | 'image') => {
     if (type === 'video') {
       handleTituloChange('url_video', url);
+      // Extraer duración automáticamente
+      try {
+        const durationSeconds = await getVideoDuration(url);
+    handleTituloChange('duracion_segundos', Math.round(durationSeconds));
+      } catch (e) {
+        // Si falla, no interrumpe el flujo
+        console.warn('No se pudo extraer la duración del video:', e);
+        handleTituloChange('duracion_segundos', null);
+      }
     } else {
       handleTituloChange('imagen_portada', url);
     }
@@ -1052,13 +1082,31 @@ export default function UploadPage() {
                         <Input
                           id="url_video"
                           value={tituloForm.url_video}
-                          onChange={(e) => handleTituloChange('url_video', e.target.value)}
+                          onChange={async (e) => {
+                            const url = e.target.value;
+                            handleTituloChange('url_video', url);
+                            // Si parece un enlace directo a un archivo de video, intenta extraer duración
+                            if (url && (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov') || url.endsWith('.mkv') || url.endsWith('.avi'))) {
+                              try {
+                                const durationSeconds = await getVideoDuration(url);
+                                handleTituloChange('duracion_segundos', Math.round(durationSeconds));
+                              } catch (e) {
+                                console.warn('No se pudo extraer la duración del video:', e);
+                                handleTituloChange('duracion_segundos', null);
+                              }
+                            } else {
+                              // Si no es un archivo directo, limpia el campo de segundos
+                              handleTituloChange('duracion_segundos', null);
+                            }
+                          }}
                           placeholder="URL del video"
                           className="bg-gray-700 border-gray-600 text-white flex-1"
                         />
                         {files.filter(f => f.type === 'video' && f.status === 'success').length > 0 && (
                           <select
-                            onChange={(e) => e.target.value && selectUploadedFile(e.target.value, 'video')}
+                            onChange={async (e) => {
+                              if (e.target.value) await selectUploadedFile(e.target.value, 'video');
+                            }}
                             className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500"
                             defaultValue=""
                           >

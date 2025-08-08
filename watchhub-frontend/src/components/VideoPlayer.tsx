@@ -24,17 +24,33 @@ interface VideoPlayerProps {
   className?: string
   onTimeUpdate?: (currentTime: number, duration: number) => void
   onEnded?: () => void
+  startTime?: number // NUEVO: para reanudar desde progreso
 }
 
-export default function VideoPlayer({
+export const VideoPlayer = ({
   src,
   poster,
   title,
   autoPlay = false,
   className,
   onTimeUpdate,
-  onEnded
-}: VideoPlayerProps) {
+  onEnded,
+  startTime = 0
+}: VideoPlayerProps) => {
+  // Saltar al tiempo guardado al cargar metadata
+  useEffect(() => {
+    if (videoRef.current && startTime > 0) {
+      const seek = () => {
+        videoRef.current!.currentTime = startTime;
+        videoRef.current!.removeEventListener('loadedmetadata', seek);
+      };
+      videoRef.current.addEventListener('loadedmetadata', seek);
+      // Si el video ya está cargado
+      if (videoRef.current.readyState >= 1) {
+        videoRef.current.currentTime = startTime;
+      }
+    }
+  }, [startTime, src]);
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -61,44 +77,48 @@ export default function VideoPlayer({
     return () => clearTimeout(timeout)
   }, [isPlaying, showControls])
 
-  // Initialize HLS
+  // Initialize HLS solo si es .m3u8, si es .mp4 usar video normal
   useEffect(() => {
-    if (videoRef.current && src) {
-      setIsLoading(true)
-      setError('')
+    if (!videoRef.current || !src) return;
+    setIsLoading(true);
+    setError('');
 
+  // Detección robusta de HLS: ignora mayúsculas y parámetros en la URL
+  const cleanSrc = src.split('?')[0].toLowerCase();
+  const isHls = cleanSrc.endsWith('.m3u8');
+    if (isHls) {
       if (Hls.isSupported()) {
-        const hls = new Hls()
-
+        const hls = new Hls();
         hls.on(Hls.Events.ERROR, (event, data) => {
-          console.error('HLS Error:', data)
-          setError('Error al cargar el video')
-          setIsLoading(false)
-        })
-
+          console.error('HLS Error:', data);
+          setError('Error al cargar el video');
+          setIsLoading(false);
+        });
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setIsLoading(false)
+          setIsLoading(false);
           if (autoPlay) {
-            videoRef.current?.play()
+            videoRef.current?.play();
           }
-        })
-
-        hls.loadSource(src)
-        hls.attachMedia(videoRef.current)
-
+        });
+        hls.loadSource(src);
+        hls.attachMedia(videoRef.current);
         return () => {
-          hls.destroy()
-        }
+          hls.destroy();
+        };
       } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari native HLS support
-        videoRef.current.src = src
-        setIsLoading(false)
+        videoRef.current.src = src;
+        setIsLoading(false);
       } else {
-        setError('Tu navegador no soporta este formato de video')
-        setIsLoading(false)
+        setError('Tu navegador no soporta este formato de video');
+        setIsLoading(false);
       }
+    } else {
+      // MP4 u otros formatos soportados por HTML5
+      videoRef.current.src = src;
+      setIsLoading(false);
     }
-  }, [src, autoPlay])
+  }, [src, autoPlay]);
 
   // Video event handlers
   const handlePlay = () => setIsPlaying(true)
@@ -202,6 +222,8 @@ export default function VideoPlayer({
       onMouseEnter={() => setShowControls(true)}
       onMouseMove={() => setShowControls(true)}
       onMouseLeave={() => !isPlaying || setShowControls(false)}
+  role="region"
+  tabIndex={0}
     >
       {/* Video Element */}
       <video
@@ -214,8 +236,10 @@ export default function VideoPlayer({
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
-        onClick={togglePlay}
-      />
+        // onClick={togglePlay} // Si no es necesario, comentar o eliminar
+      >
+        <track kind="captions" />
+      </video>
 
       {/* Loading Overlay */}
       {isLoading && (
