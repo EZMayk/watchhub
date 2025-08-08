@@ -79,6 +79,7 @@ CREATE TABLE public.perfiles (
   nombre text NOT NULL,
   tipo text CHECK (tipo = ANY (ARRAY['viewer'::text, 'child'::text])),
   creado_en timestamp without time zone DEFAULT now(),
+  avatar_url text,
   CONSTRAINT perfiles_pkey PRIMARY KEY (id),
   CONSTRAINT perfiles_cuenta_id_fkey FOREIGN KEY (cuenta_id) REFERENCES public.cuentas(id)
 );
