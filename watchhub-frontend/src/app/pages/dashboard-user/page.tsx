@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { Plus, Film } from 'lucide-react'
 import '@/styles/dashboard-animations.css'
+import SubscriptionProtectedRoute from '@/components/SubscriptionProtectedRoute'
 
 interface Profile {
   id: string
@@ -281,8 +282,10 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div>Cargando...</div>}>
-      <DashboardContent />
-    </Suspense>
+    <SubscriptionProtectedRoute>
+      <Suspense fallback={<div>Cargando...</div>}>
+        <DashboardContent />
+      </Suspense>
+    </SubscriptionProtectedRoute>
   )
 }

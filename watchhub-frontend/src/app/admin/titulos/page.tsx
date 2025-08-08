@@ -167,7 +167,7 @@ export default function AdminTitulos() {
       setConnectionStatus('checking');
       
       // Primero intentar con created_at, si falla, probar con fecha_creacion, o sin orden
-      let query = supabase.from('titulos').select('*');
+      const query = supabase.from('titulos').select('*');
       
       try {
         const { data, error } = await query.order('created_at', { ascending: false });

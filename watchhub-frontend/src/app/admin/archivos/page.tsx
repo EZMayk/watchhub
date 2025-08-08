@@ -350,7 +350,7 @@ export default function ArchivosPage() {
                 {files.length === 0 && (
                   <div className="text-sm text-gray-400 space-y-2">
                     <p>💡 <strong>Para subir archivos:</strong></p>
-                    <p>1. Ve a "Subir Contenido" en el menú lateral</p>
+                    <p>1. Ve a &quot;Subir Contenido&quot; en el menú lateral</p>
                     <p>2. Sube videos e imágenes</p>
                     <p>3. Los archivos aparecerán automáticamente aquí</p>
                   </div>

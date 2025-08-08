@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LogOut, User, Play, Search, Film, Info } from 'lucide-react'
+import SubscriptionProtectedRoute from '@/components/SubscriptionProtectedRoute'
 
-export default function PrincipalPage() {
+function PrincipalContent() {
   const { user, loading, signOut } = useAuth()
   const [titles, setTitles] = useState<any[]>([])
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null)
@@ -326,5 +327,13 @@ export default function PrincipalPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function PrincipalPage() {
+  return (
+    <SubscriptionProtectedRoute>
+      <PrincipalContent />
+    </SubscriptionProtectedRoute>
   )
 }

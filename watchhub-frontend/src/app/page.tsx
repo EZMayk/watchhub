@@ -35,7 +35,7 @@ export default function HomePage() {
   const [error, setError] = useState('')
   
   // Obtener configuración dinámica
-  const { settings, loading: settingsLoading, error: settingsError } = useAppSettings()
+  const { settings, error: settingsError } = useAppSettings()
   
   // Obtener estado del reproductor de video
   const { activeVideoId, setActiveVideo } = useVideoPlayer()
@@ -264,7 +264,7 @@ export default function HomePage() {
                     icon={<Crown className="h-5 w-5" />}
                     className="min-w-[200px] hover-lift"
                   >
-                    Comenzar Gratis
+                    Comenzar
                   </Button>
                 </Link>
               ) : (

@@ -29,6 +29,9 @@ CREATE TABLE public.cuentas (
   correo text NOT NULL UNIQUE,
   rol text DEFAULT 'usuario'::text,
   creada_en timestamp without time zone DEFAULT now(),
+  stripe_customer_id text,
+  paypal_customer_id text,
+  paypal_email text,
   CONSTRAINT cuentas_pkey PRIMARY KEY (id),
   CONSTRAINT cuentas_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
@@ -48,6 +51,28 @@ CREATE TABLE public.historial_visualizacion (
   CONSTRAINT historial_visualizacion_pkey PRIMARY KEY (id),
   CONSTRAINT historial_visualizacion_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id)
 );
+CREATE TABLE public.metodos_pago (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  tipo_proveedor text NOT NULL CHECK (tipo_proveedor = ANY (ARRAY['stripe'::text, 'paypal'::text])),
+  stripe_payment_method_id text,
+  stripe_customer_id text,
+  paypal_account_id text,
+  paypal_email text,
+  paypal_payer_id text,
+  nickname text,
+  is_default boolean DEFAULT false,
+  last_four text,
+  brand text,
+  tipo_metodo text,
+  activo boolean DEFAULT true,
+  verificado boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  last_used_at timestamp with time zone,
+  CONSTRAINT metodos_pago_pkey PRIMARY KEY (id),
+  CONSTRAINT metodos_pago_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.cuentas(id)
+);
 CREATE TABLE public.perfiles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   cuenta_id uuid,
@@ -56,6 +81,21 @@ CREATE TABLE public.perfiles (
   creado_en timestamp without time zone DEFAULT now(),
   CONSTRAINT perfiles_pkey PRIMARY KEY (id),
   CONSTRAINT perfiles_cuenta_id_fkey FOREIGN KEY (cuenta_id) REFERENCES public.cuentas(id)
+);
+CREATE TABLE public.planes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  nombre text NOT NULL UNIQUE,
+  titulo text NOT NULL,
+  precio_mensual numeric NOT NULL,
+  precio_anual numeric NOT NULL,
+  descuento_anual integer DEFAULT 0,
+  descripcion text,
+  caracteristicas jsonb DEFAULT '[]'::jsonb,
+  activo boolean DEFAULT true,
+  orden integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT planes_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.reseñas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -74,6 +114,9 @@ CREATE TABLE public.suscripciones (
   activa boolean DEFAULT true,
   iniciada_en timestamp without time zone DEFAULT now(),
   expira_en timestamp without time zone,
+  plan_id uuid,
+  stripe_subscription_id text,
+  paypal_subscription_id text,
   CONSTRAINT suscripciones_pkey PRIMARY KEY (id),
   CONSTRAINT suscripciones_cuenta_id_fkey FOREIGN KEY (cuenta_id) REFERENCES public.cuentas(id)
 );

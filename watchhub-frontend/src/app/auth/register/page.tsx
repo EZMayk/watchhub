@@ -1,12 +1,12 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, Crown, AlertCircle, CheckCircle } from 'lucide-react'
 import { Button, Input, Card, CardContent, Alert } from '@/components/ui'
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,6 +20,20 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Verificar si viene de una suscripción pagada o de la selección de un plan
+  const isFromSubscription = searchParams.get('subscription') === 'paid'
+  const planId = searchParams.get('plan')
+  const fromSubscription = searchParams.get('from') === 'subscription'
+
+  useEffect(() => {
+    if (isFromSubscription) {
+      setMessage('¡Perfecto! Tu suscripción está pagada. Completa tu registro para empezar a disfrutar.')
+    } else if (fromSubscription && planId) {
+      setMessage('¡Perfecto! Completa tu registro para continuar con tu plan seleccionado.')
+    }
+  }, [isFromSubscription, fromSubscription, planId])
 
   const validateForm = useCallback((): boolean => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -87,12 +101,21 @@ export default function RegisterPage() {
       if (error) throw error
 
       if (data.user) {
-        setMessage('¡Registro exitoso! Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.')
+        // Siempre redirigir a la página de confirmación de email tras un registro exitoso
+        const userEmail = encodeURIComponent(data.user.email || email)
         
-        // Limpiar formulario después del registro exitoso
+        if (isFromSubscription) {
+          setMessage('¡Registro exitoso! Tu cuenta ha sido creada y tu suscripción está activa.')
+        } else if (fromSubscription && planId) {
+          setMessage('¡Registro exitoso! Tu cuenta ha sido creada.')
+        } else {
+          setMessage('¡Registro exitoso! Tu cuenta ha sido creada.')
+        }
+        
+        // Redirigir a la página de confirmación de email con el email como parámetro
         setTimeout(() => {
-          router.push('/auth/login?message=registered')
-        }, 3000)
+          router.push(`/auth/email-confirmation?email=${userEmail}`)
+        }, 2000)
       }
     } catch (error: unknown) {
       console.error('Register error:', error)
@@ -139,11 +162,36 @@ export default function RegisterPage() {
           </div>
           
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-1 text-gradient">
-            Únete a WatchHub
+            {isFromSubscription 
+              ? 'Completa tu Registro' 
+              : fromSubscription 
+                ? 'Registro para Suscripción'
+                : 'Únete a WatchHub'
+            }
           </h1>
           <p className="text-gray-400 text-sm">
-            La mejor plataforma de streaming te espera
+            {isFromSubscription 
+              ? '¡Tu suscripción está pagada! Solo falta crear tu cuenta' 
+              : fromSubscription && planId
+                ? 'Completa tu registro para continuar con tu plan seleccionado'
+                : 'La mejor plataforma de streaming te espera'
+            }
           </p>
+          
+          {/* Indicador de suscripción pagada o plan seleccionado */}
+          {isFromSubscription && (
+            <div className="mt-3 inline-flex items-center space-x-2 bg-green-900/30 border border-green-500/50 rounded-lg px-3 py-1">
+              <CheckCircle className="h-4 w-4 text-green-400" />
+              <span className="text-green-400 text-xs font-medium">Suscripción Activa</span>
+            </div>
+          )}
+          
+          {fromSubscription && planId && !isFromSubscription && (
+            <div className="mt-3 inline-flex items-center space-x-2 bg-blue-900/30 border border-blue-500/50 rounded-lg px-3 py-1">
+              <Crown className="h-4 w-4 text-blue-400" />
+              <span className="text-blue-400 text-xs font-medium">Plan Seleccionado</span>
+            </div>
+          )}
         </div>
 
         <Card variant="glass" className="card-glass hover-lift border-gray-700/50">
@@ -302,5 +350,20 @@ export default function RegisterPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   )
 }

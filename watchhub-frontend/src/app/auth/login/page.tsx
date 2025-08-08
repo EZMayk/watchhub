@@ -1,7 +1,7 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Mail, Lock, ArrowLeft, Film } from 'lucide-react'
 import { Button, Input, Card, CardContent, Alert } from '@/components/ui'
@@ -10,7 +10,7 @@ interface UserAccount {
   rol: string
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,6 +19,19 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Manejar mensajes iniciales basados en parámetros de URL
+  useEffect(() => {
+    const messageParam = searchParams.get('message')
+    if (messageParam === 'subscription_registered') {
+      setMessage('¡Perfecto! Tu cuenta ha sido creada y tu suscripción está activa. ¡Inicia sesión para empezar a disfrutar!')
+    } else if (messageParam === 'registered') {
+      setMessage('Registro exitoso. Inicia sesión para continuar.')
+    } else if (messageParam === 'payment_success') {
+      setMessage('¡Pago exitoso! Tu suscripción está activa. Inicia sesión para acceder al contenido.')
+    }
+  }, [searchParams])
 
   const validateForm = useCallback((): boolean => {
     if (!email) {
@@ -66,29 +79,51 @@ export default function LoginPage() {
           .eq('id', data.user.id)
           .single()
 
+        // Verificar si es admin
+        const isAdmin = (userAccount as UserAccount)?.rol === 'admin'
+
         setMessage('¡Inicio de sesión exitoso! Redirigiendo...')
         
-        setTimeout(() => {
+        setTimeout(async () => {
           // Verificar si hay una URL de redirección
           const searchParams = new URLSearchParams(window.location.search)
           const redirectTo = searchParams.get('redirectTo')
           
           if (redirectTo) {
             // Si hay una URL de redirección, verificar permisos
-            if (redirectTo.startsWith('/admin') && (userAccount as UserAccount)?.rol === 'admin') {
+            if (redirectTo.startsWith('/admin') && isAdmin) {
               router.push(redirectTo)
-            } else if (redirectTo.startsWith('/admin') && (userAccount as UserAccount)?.rol !== 'admin') {
+            } else if (redirectTo.startsWith('/admin') && !isAdmin) {
               // Si intenta acceder a admin sin permisos, ir al dashboard de usuario
               router.push('/pages/dashboard-user?error=access_denied')
             } else {
               router.push(redirectTo)
             }
-          } else if ((userAccount as UserAccount)?.rol === 'admin') {
+          } else if (isAdmin) {
             // Redirección por defecto para admin
             router.push('/admin')
           } else {
-            // Redirección por defecto para usuario normal
-            router.push('/pages/dashboard-user')
+            // Para usuarios regulares, verificar suscripción antes de redirigir
+            try {
+              const { data: subscription } = await supabase
+                .from('suscripciones')
+                .select('*')
+                .eq('cuenta_id', data.user.id)
+                .eq('activa', true)
+                .gt('expira_en', new Date().toISOString())
+                .single()
+
+              if (subscription) {
+                // Tiene suscripción activa, ir al dashboard
+                router.push('/pages/dashboard-user')
+              } else {
+                // No tiene suscripción activa, ir a planes
+                router.push('/suscripciones?message=subscription_required')
+              }
+            } catch (subscriptionError) {
+              // Error al verificar suscripción o no tiene suscripción, ir a planes
+              router.push('/suscripciones?message=subscription_required')
+            }
           }
         }, 1500)
       }
@@ -273,5 +308,20 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
